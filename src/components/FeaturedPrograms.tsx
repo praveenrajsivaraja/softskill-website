@@ -23,6 +23,7 @@ interface FeaturedProgram {
 
 const FeaturedPrograms = () => {
   const [featuredPrograms, setFeaturedPrograms] = useState<FeaturedProgram[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchFeaturedPrograms();
@@ -30,6 +31,7 @@ const FeaturedPrograms = () => {
 
   const fetchFeaturedPrograms = async () => {
     try {
+      setLoadError(null);
       const { data, error } = await supabase
         .from('courses')
         .select('*')
@@ -38,12 +40,18 @@ const FeaturedPrograms = () => {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Error fetching featured programs:', error);
-      } else {
-        setFeaturedPrograms(data || []);
+        console.error('Error fetching featured programs:', error.message);
+        setLoadError('Featured programs could not be loaded. Please try again.');
+        setFeaturedPrograms([]);
+        return;
       }
+
+      setFeaturedPrograms(data || []);
     } catch (error) {
-      console.error('Error fetching featured programs:', error);
+      const message = error instanceof Error ? error.message : 'Failed to load featured programs.';
+      console.error('Error fetching featured programs:', message);
+      setLoadError('Featured programs could not be reached. Please try again.');
+      setFeaturedPrograms([]);
     }
   };
 
@@ -63,6 +71,10 @@ const FeaturedPrograms = () => {
             </Button>
           </Link>
         </div>
+
+        {loadError && (
+          <p className="text-center text-gray-600 mb-8">{loadError}</p>
+        )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 justify-center">
           {featuredPrograms.map((program) => (

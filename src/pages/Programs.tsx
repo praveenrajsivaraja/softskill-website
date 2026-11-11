@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, Users, Star, Phone, MapPin, Loader2 } from 'lucide-react';
 import EnrollButton from '@/components/EnrollButton';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Program {
@@ -23,7 +22,7 @@ interface Program {
 const Programs = () => {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { user, isAuthenticated } = useAuth();
 
   // MBTI course ID to exclude from programs listing
@@ -35,6 +34,7 @@ const Programs = () => {
 
   const fetchPrograms = async () => {
     try {
+      setLoadError(null);
       // Get all active courses except MBTI course
       const { data: allCourses, error: coursesError } = await supabase
         .from('courses')
@@ -44,12 +44,9 @@ const Programs = () => {
         .order('created_at', { ascending: true });
 
       if (coursesError) {
-        console.error('Error fetching programs:', coursesError);
-        toast({
-          title: "Error",
-          description: "Failed to load programs. Please try again.",
-          variant: "destructive"
-        });
+        console.error('Error fetching programs:', coursesError.message);
+        setLoadError('The course catalog could not be loaded. Please try again.');
+        setPrograms([]);
         return;
       }
 
@@ -70,12 +67,10 @@ const Programs = () => {
 
       setPrograms(availablePrograms);
     } catch (error) {
-      console.error('Error fetching programs:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load programs. Please try again.",
-        variant: "destructive"
-      });
+      const message = error instanceof Error ? error.message : 'Failed to load programs.';
+      console.error('Error fetching programs:', message);
+      setLoadError('The course catalog could not be reached. Please try again.');
+      setPrograms([]);
     } finally {
       setLoading(false);
     }
@@ -196,10 +191,18 @@ const Programs = () => {
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">📚</div>
                 <h3 className="text-2xl font-semibold text-gray-900 mb-2">
-                  {isAuthenticated ? "All caught up!" : "No programs available"}
+                  {loadError
+                    ? "Programs could not be loaded"
+                    : isAuthenticated
+                      ? "All caught up!"
+                      : "No programs available"}
                 </h3>
-                <p className="text-gray-600">
-                  {isAuthenticated ? "You're enrolled in all available programs." : "Check back later for new programs."}
+                <p className="text-gray-600 max-w-xl mx-auto">
+                  {loadError
+                    ? loadError
+                    : isAuthenticated
+                      ? "You're enrolled in all available programs."
+                      : "Check back later for new programs."}
                 </p>
               </div>
             )}
