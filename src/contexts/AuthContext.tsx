@@ -1,9 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { getAuthRedirectUrl, isEmailLinkType, readEmailLinkError } from '@/lib/authEmailLink';
 import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
@@ -22,27 +20,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const tokenHash = searchParams.get('token_hash');
-    const linkType = searchParams.get('type');
-    if (tokenHash && isEmailLinkType(linkType) && window.location.pathname !== '/auth/confirm') {
-      navigate(`/auth/confirm?${searchParams.toString()}`, { replace: true });
-    }
-
-    const emailLinkError = readEmailLinkError(window.location.hash);
-    const isConfirmPage = window.location.pathname === '/auth/confirm';
-    if (emailLinkError && !isConfirmPage) {
-      toast({
-        title: 'Could not verify email',
-        description: emailLinkError,
-        variant: 'destructive',
-      });
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-    }
-
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -88,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password,
         options: {
-          emailRedirectTo: getAuthRedirectUrl(),
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             full_name: fullName,
           },
@@ -97,44 +76,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Sign up error:', error);
-
+        
+        // Handle specific email confirmation errors
         if (error.message.includes('Error sending confirmation email')) {
-          return {
-            error: {
-              message: 'The account was created, but the confirmation email was not sent. In Supabase, reset the Confirm signup template to the default template, then try again.',
-            },
-          };
+          toast({
+            title: "Account Created Successfully!",
+            description: "Your account has been created, but email confirmation is temporarily unavailable. You can still use your account.",
+          });
+          return { error: null }; // Don't treat this as an error for the user
         }
-
+        
         return { error };
       }
 
-      const isExistingAccount = Boolean(data.user && data.user.identities?.length === 0);
-      if (isExistingAccount) {
-        const { error: resendError } = await supabase.auth.resend({
-          type: 'signup',
-          email,
-          options: {
-            emailRedirectTo: getAuthRedirectUrl(),
-          },
-        });
-
-        if (resendError) {
-          console.error('Confirmation resend error:', resendError);
-          return { error: resendError };
-        }
-
-        toast({
-          title: 'Confirmation email sent',
-          description: 'This email is already registered. Open the newest confirmation message.',
-        });
-        return { error: null };
-      }
-
+      // If user is created but not confirmed, show appropriate message
       if (data.user && !data.user.email_confirmed_at) {
         toast({
           title: "Account created!",
-          description: "Check your email and open the confirmation link.",
+          description: "Please check your email to verify your account, or you can continue using the app.",
         });
       } else if (data.user) {
         toast({
