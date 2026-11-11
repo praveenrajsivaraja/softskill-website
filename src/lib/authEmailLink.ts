@@ -2,8 +2,10 @@ const EMAIL_LINK_TYPES = ['signup', 'invite', 'magiclink', 'recovery', 'email_ch
 
 export type EmailLinkType = (typeof EMAIL_LINK_TYPES)[number];
 
-export function getEmailConfirmRedirectUrl(): string {
-  return `${window.location.origin}/auth/confirm`;
+export function getAuthRedirectUrl(): string {
+  // Supabase sends the confirmation email only when this URL is allowlisted.
+  // The site root is the address that was already allowed for this project.
+  return `${window.location.origin}/`;
 }
 
 export function isEmailLinkType(value: string | null): value is EmailLinkType {

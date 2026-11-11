@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { getEmailConfirmRedirectUrl, isEmailLinkType, readEmailLinkError } from '@/lib/authEmailLink';
+import { getAuthRedirectUrl, isEmailLinkType, readEmailLinkError } from '@/lib/authEmailLink';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,7 +91,7 @@ const AuthConfirm = () => {
         type: 'signup',
         email: resendEmail.trim(),
         options: {
-          emailRedirectTo: getEmailConfirmRedirectUrl(),
+          emailRedirectTo: getAuthRedirectUrl(),
         },
       });
 
