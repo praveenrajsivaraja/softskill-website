@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { getEmailConfirmRedirectUrl, readEmailLinkError } from '@/lib/authEmailLink';
 import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
@@ -22,6 +23,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
+    const emailLinkError = readEmailLinkError(window.location.hash);
+    const isConfirmPage = window.location.pathname === '/auth/confirm';
+    if (emailLinkError && !isConfirmPage) {
+      toast({
+        title: 'Could not verify email',
+        description: emailLinkError,
+        variant: 'destructive',
+      });
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -67,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: getEmailConfirmRedirectUrl(),
           data: {
             full_name: fullName,
           },
@@ -93,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user && !data.user.email_confirmed_at) {
         toast({
           title: "Account created!",
-          description: "Please check your email to verify your account, or you can continue using the app.",
+          description: "Open the newest confirmation email and click Confirm email on this site.",
         });
       } else if (data.user) {
         toast({

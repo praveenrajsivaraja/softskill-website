@@ -13,6 +13,7 @@ import CourseDetail from "./pages/CourseDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Login from "./pages/Login";
+import AuthConfirm from "./pages/AuthConfirm";
 import EnrolledCourses from "./pages/EnrolledCourses";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -44,6 +45,7 @@ const App = () => {
                 <Route path="*" element={<NotFound />} />
               </Route>
               <Route path="login" element={<Login />} />
+              <Route path="auth/confirm" element={<AuthConfirm />} />
               <Route path="admin-login" element={<AdminLogin />} />
               <Route path="admin/*" element={<AdminDashboard />} />
             </Routes>
