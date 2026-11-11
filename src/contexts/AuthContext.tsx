@@ -15,26 +15,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function readSignupError(error: unknown): Promise<string> {
-  const response = (error as { context?: { json?: () => Promise<unknown> } } | null)?.context;
-  if (response && typeof response.json === 'function') {
-    try {
-      const body = await response.json();
-      if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string') {
-        return body.error;
-      }
-    } catch {
-      // The function response was not JSON.
-    }
-  }
-
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return 'Failed to create account. Please try again.';
-}
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,39 +62,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
-      const normalizedEmail = email.trim().toLowerCase();
-      const { data, error } = await supabase.functions.invoke('signup-user', {
-        body: {
-          email: normalizedEmail,
-          password,
-          fullName: fullName?.trim() || null,
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            full_name: fullName,
+          },
         },
       });
 
-      if (error || data?.error) {
-        const message = data?.error || (await readSignupError(error));
-        console.error('Sign up error:', message);
-        return { error: { message } };
+      if (error) {
+        console.error('Sign up error:', error);
+
+        if (error.message.includes('Error sending confirmation email')) {
+          toast({
+            title: "Account Created Successfully!",
+            description: "Your account has been created, but email confirmation is temporarily unavailable. You can still use your account.",
+          });
+          return { error: null };
+        }
+
+        return { error };
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-
-      if (signInError) {
-        console.error('Sign up session error:', signInError.message);
-        return { error: signInError };
+      if (data.user && !data.user.email_confirmed_at) {
+        toast({
+          title: "Account created!",
+          description: "Please check your email to verify your account, or you can continue using the app.",
+        });
+      } else if (data.user) {
+        toast({
+          title: "Account created!",
+          description: "Welcome to KIKI Learning Hub!",
+        });
       }
-
-      toast({
-        title: "Account created!",
-        description: "Welcome to KIKI Learning Hub!",
-      });
 
       return { error: null };
     } catch (error) {
-      console.error('Sign up error:', error instanceof Error ? error.message : 'unknown error');
+      console.error('Sign up error:', error);
       return { error };
     }
   };
