@@ -98,9 +98,6 @@ const Login = () => {
       } else {
         setError(error.message || 'Failed to create account. Please try again.');
       }
-    } else {
-      setError('');
-      setActiveTab('login');
     }
     
     setIsSubmitting(false);
