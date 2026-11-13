@@ -1,131 +1,145 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Clock, Users, Star } from 'lucide-react';
+import { Search, Clock, BookOpen, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type CourseSearchResult = Pick<
+  Database['public']['Tables']['courses']['Row'],
+  | 'id'
+  | 'title'
+  | 'description'
+  | 'image_url'
+  | 'price'
+  | 'original_price'
+  | 'duration'
+  | 'category'
+  | 'age_range'
+  | 'mode'
+  | 'total_lessons'
+>;
+
+const COURSE_SEARCH_COLUMNS =
+  'id, title, description, image_url, price, original_price, duration, category, age_range, mode, total_lessons';
+
+const SEARCHABLE_FIELDS = ['title', 'description', 'category', 'mode', 'age_range', 'duration'] as const;
+
+function formatInr(amount: number): string {
+  return `₹${amount.toLocaleString('en-IN')}`;
+}
+
+function courseMatchesQuery(course: CourseSearchResult, query: string): boolean {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return SEARCHABLE_FIELDS.some((field) => {
+    const value = course[field];
+    return typeof value === 'string' && value.toLowerCase().includes(normalizedQuery);
+  });
+}
+
+interface CourseDetail {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+function courseDetails(course: CourseSearchResult): CourseDetail[] {
+  const details: CourseDetail[] = [];
+
+  if (course.duration) {
+    details.push({ key: 'duration', label: course.duration, icon: <Clock className="h-3 w-3" /> });
+  }
+  if (course.mode) {
+    details.push({ key: 'mode', label: course.mode, icon: null });
+  }
+  if (course.age_range) {
+    details.push({ key: 'age_range', label: course.age_range, icon: null });
+  }
+  if (course.total_lessons != null && course.total_lessons > 0) {
+    details.push({
+      key: 'total_lessons',
+      label: `${course.total_lessons} lessons`,
+      icon: <BookOpen className="h-3 w-3" />,
+    });
+  }
+
+  return details;
+}
+
 const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [courses, setCourses] = useState<CourseSearchResult[]>([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const programs = [
-    {
-      id: 1,
-      title: "Art & Craft Classes",
-      description: "Express creativity through various art forms and hands-on craft projects",
-      price: "₹2,999",
-      duration: "6 weeks",
-      students: 124,
-      rating: 4.8,
-      category: "Arts"
-    },
-    {
-      id: 2,
-      title: "Spoken English Class",
-      description: "Master fluent English communication and build confidence in speaking",
-      price: "₹1,999",
-      duration: "8 weeks",
-      students: 189,
-      rating: 4.9,
-      category: "Language"
-    },
-    {
-      id: 3,
-      title: "Spoken Hindi Class",
-      description: "Learn to speak Hindi fluently with proper pronunciation and grammar",
-      price: "₹1,799",
-      duration: "8 weeks",
-      students: 95,
-      rating: 4.7,
-      category: "Language"
-    },
-    {
-      id: 4,
-      title: "Soft Skill Training",
-      description: "Develop essential soft skills for personal and professional success",
-      price: "₹3,499",
-      duration: "4 weeks",
-      students: 267,
-      rating: 4.8,
-      category: "Professional"
-    },
-    {
-      id: 5,
-      title: "Public Speaking",
-      description: "Overcome stage fear and become a confident public speaker",
-      price: "₹2,499",
-      duration: "3 weeks",
-      students: 156,
-      rating: 4.9,
-      category: "Communication"
-    },
-    {
-      id: 6,
-      title: "Personality Development Class",
-      description: "Transform your personality and build lasting confidence",
-      price: "₹3,999",
-      duration: "6 weeks",
-      students: 198,
-      rating: 4.8,
-      category: "Personal"
-    },
-    {
-      id: 7,
-      title: "Career Counseling",
-      description: "Discover your perfect career path with expert guidance and assessment",
-      price: "₹1,499",
-      duration: "2 sessions",
-      students: 89,
-      rating: 4.9,
-      category: "Career"
-    },
-    {
-      id: 8,
-      title: "Health Insurance",
-      description: "Comprehensive health insurance consultation and planning services",
-      price: "₹999",
-      duration: "1 session",
-      students: 76,
-      rating: 4.6,
-      category: "Insurance"
-    },
-    {
-      id: 9,
-      title: "Tarot Reading",
-      description: "Gain insights into your life journey through professional tarot readings",
-      price: "₹599",
-      duration: "1 session",
-      students: 134,
-      rating: 4.7,
-      category: "Spiritual"
-    },
-    {
-      id: 10,
-      title: "Business Consulting",
-      description: "Strategic business guidance to grow and scale your venture",
-      price: "₹4,999",
-      duration: "4 sessions",
-      students: 45,
-      rating: 4.9,
-      category: "Business"
+  useEffect(() => {
+    if (!isOpen) {
+      return;
     }
-  ];
 
-  const filteredPrograms = useMemo(() => {
-    if (!searchQuery.trim()) return programs;
-    
-    return programs.filter(program => 
-      program.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      program.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      program.category.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery]);
+    let isCancelled = false;
+
+    const loadCourses = async () => {
+      setHasLoaded(false);
+      setLoadError(null);
+
+      const { data, error } = await supabase
+        .from('courses')
+        .select(COURSE_SEARCH_COLUMNS)
+        .eq('status', 'active')
+        .order('title', { ascending: true });
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (error) {
+        console.error('Error fetching courses for search:', error);
+        setCourses([]);
+        setLoadError('Failed to load courses. Please try again.');
+        toast({
+          title: 'Error',
+          description: 'Failed to load courses. Please try again.',
+          variant: 'destructive',
+        });
+      } else {
+        setCourses(data ?? []);
+      }
+
+      setHasLoaded(true);
+    };
+
+    loadCourses();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen, toast]);
+
+  const filteredCourses = useMemo(
+    () => courses.filter((course) => courseMatchesQuery(course, searchQuery)),
+    [courses, searchQuery],
+  );
+
+  const openCourse = (courseId: string) => {
+    onClose();
+    navigate(`/course/${courseId}`);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -138,80 +152,141 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Search for courses, skills, or categories..."
+              placeholder="Search by title, description, category, mode, or age range..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(event) => setSearchQuery(event.target.value)}
               className="pl-10 h-12 text-base"
               autoFocus
             />
           </div>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {filteredPrograms.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-gray-400 mb-2">
-                <Search className="w-12 h-12 mx-auto" />
-              </div>
-              <p className="text-gray-600">No courses found matching your search.</p>
-              <p className="text-sm text-gray-500 mt-1">Try searching with different keywords.</p>
-            </div>
-          ) : (
-            <>
-              <div className="text-sm text-gray-600 mb-4">
-                Found {filteredPrograms.length} course{filteredPrograms.length !== 1 ? 's' : ''}
-                {searchQuery && ` for "${searchQuery}"`}
-              </div>
-              
-              <div className="grid gap-4 max-h-96 overflow-y-auto">
-                {filteredPrograms.map((program) => (
-                  <div key={program.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{program.title}</h3>
-                      <Badge variant="secondary" className="text-xs">
-                        {program.category}
-                      </Badge>
-                    </div>
-                    
-                    <p className="text-gray-600 mb-3 text-sm">{program.description}</p>
-                    
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{program.duration}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          <span>{program.students}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <span>{program.rating}</span>
-                        </div>
-                      </div>
-                      <span className="text-lg font-bold text-kiki-purple-600">{program.price}</span>
-                    </div>
-                    
-                    <Button 
-                      size="sm" 
-                      className="w-full bg-kiki-purple-600 hover:bg-kiki-purple-700"
-                      onClick={() => {
-                        // Handle course selection
-                        console.log('Selected course:', program.title);
-                        onClose();
-                      }}
-                    >
-                      View Details
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        <SearchResults
+          isLoading={!hasLoaded}
+          loadError={loadError}
+          searchQuery={searchQuery}
+          courses={filteredCourses}
+          onOpenCourse={openCourse}
+        />
       </DialogContent>
     </Dialog>
+  );
+};
+
+interface SearchResultsProps {
+  isLoading: boolean;
+  loadError: string | null;
+  searchQuery: string;
+  courses: CourseSearchResult[];
+  onOpenCourse: (courseId: string) => void;
+}
+
+const SearchResults: React.FC<SearchResultsProps> = ({
+  isLoading,
+  loadError,
+  searchQuery,
+  courses,
+  onOpenCourse,
+}) => {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-kiki-purple-600" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return <p className="text-center text-gray-600 py-8">{loadError}</p>;
+  }
+
+  if (courses.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-gray-400 mb-2">
+          <Search className="w-12 h-12 mx-auto" />
+        </div>
+        <p className="text-gray-600">No courses found matching your search.</p>
+        <p className="text-sm text-gray-500 mt-1">Try searching with different keywords.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="text-sm text-gray-600 mb-4">
+        Found {courses.length} course{courses.length !== 1 ? 's' : ''}
+        {searchQuery.trim() && ` for "${searchQuery.trim()}"`}
+      </div>
+
+      <div className="grid gap-4 max-h-96 overflow-y-auto">
+        {courses.map((course) => (
+          <CourseSearchCard key={course.id} course={course} onOpenCourse={onOpenCourse} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface CourseSearchCardProps {
+  course: CourseSearchResult;
+  onOpenCourse: (courseId: string) => void;
+}
+
+const CourseSearchCard: React.FC<CourseSearchCardProps> = ({ course, onOpenCourse }) => {
+  const details = courseDetails(course);
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+      <div className="flex gap-4">
+        {course.image_url && (
+          <img
+            src={course.image_url}
+            alt={course.title}
+            className="h-20 w-28 rounded-md object-cover shrink-0"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex justify-between items-start gap-3 mb-2">
+            <h3 className="text-lg font-semibold text-gray-900">{course.title}</h3>
+            {course.category && (
+              <Badge variant="secondary" className="text-xs shrink-0">
+                {course.category}
+              </Badge>
+            )}
+          </div>
+
+          {course.description && (
+            <p className="text-gray-600 mb-3 text-sm">{course.description}</p>
+          )}
+
+          <div className="flex items-center justify-between gap-4 text-xs text-gray-500 mb-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {details.map((detail) => (
+                <span key={detail.key} className="inline-flex items-center gap-1">
+                  {detail.icon}
+                  {detail.label}
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-lg font-bold text-kiki-purple-600">{formatInr(course.price)}</span>
+              {course.original_price != null && course.original_price > course.price && (
+                <span className="text-xs text-gray-500 line-through">{formatInr(course.original_price)}</span>
+              )}
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            className="w-full bg-kiki-purple-600 hover:bg-kiki-purple-700"
+            onClick={() => onOpenCourse(course.id)}
+          >
+            View Details
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };
 
