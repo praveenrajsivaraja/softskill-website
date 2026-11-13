@@ -181,11 +181,20 @@ const CareerTest = () => {
                   <Badge variant="secondary" className="mb-2">Career Recommendations</Badge>
                 </div>
 
-                <EnrollButton
-                  courseId={careerTestCourse.id}
-                  isEnrolled={isEnrolled}
-                  className="w-full"
-                />
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full border-kiki-purple-600 text-kiki-purple-600 hover:bg-kiki-purple-50"
+                    onClick={() => navigate(`/course/${careerTestCourse.id}`)}
+                  >
+                    View Details
+                  </Button>
+                  <EnrollButton
+                    courseId={careerTestCourse.id}
+                    isEnrolled={isEnrolled}
+                    className="w-full"
+                  />
+                </div>
               </div>
             ) : (
               <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-6 mb-8">
@@ -281,15 +290,24 @@ const CareerTest = () => {
                   <Badge className="bg-white/20 text-white">Personalized results</Badge>
                 </div>
                 
-                <EnrollButton
-                  courseId={careerTestCourse.id}
-                  isEnrolled={isEnrolled}
-                  className={`${
-                    isEnrolled 
-                      ? 'bg-green-500 hover:bg-green-600' 
-                      : 'bg-white text-kiki-purple-600 hover:bg-gray-100'
-                  }`}
-                />
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <Button
+                    variant="outline"
+                    className="border-white text-white bg-transparent hover:bg-white/10"
+                    onClick={() => navigate(`/course/${careerTestCourse.id}`)}
+                  >
+                    View Details
+                  </Button>
+                  <EnrollButton
+                    courseId={careerTestCourse.id}
+                    isEnrolled={isEnrolled}
+                    className={`${
+                      isEnrolled
+                        ? 'bg-green-500 hover:bg-green-600'
+                        : 'bg-white text-kiki-purple-600 hover:bg-gray-100'
+                    }`}
+                  />
+                </div>
               </div>
             )}
           </div>

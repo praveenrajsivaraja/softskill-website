@@ -101,6 +101,10 @@ const CourseSections = ({ courseId, isEnrolled = false }: CourseSectionsProps) =
       // Auto-expand the first section if there are sections
       if (sectionsWithSortedContents.length > 0) {
         setOpenSections(new Set([sectionsWithSortedContents[0].id]));
+        const firstPreviewItem = sectionsWithSortedContents[0].course_contents?.[0];
+        if (!isEnrolled && firstPreviewItem) {
+          setSelectedContent(firstPreviewItem);
+        }
       }
     } catch (error) {
       console.error('Error fetching course sections:', error);
@@ -492,17 +496,35 @@ const CourseSections = ({ courseId, isEnrolled = false }: CourseSectionsProps) =
                 {renderContentViewer(selectedContent)}
               </CardContent>
             </Card>
+          ) : selectedContent ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {getContentIcon(selectedContent.type)}
+                  {selectedContent.title}
+                </CardTitle>
+                {selectedContent.description && (
+                  <CardDescription>{selectedContent.description}</CardDescription>
+                )}
+              </CardHeader>
+              <CardContent className="text-center py-8">
+                <Badge variant="secondary" className="mb-4">Preview</Badge>
+                <p className="text-gray-600">
+                  This lesson is listed for preview. Enroll to open the full content.
+                </p>
+              </CardContent>
+            </Card>
           ) : (
             <Card>
               <CardContent className="text-center py-12">
                 <PlayCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {isEnrolled ? "Select Content" : "Preview Mode"}
+                  {isEnrolled ? "Select Content" : "Preview"}
                 </h3>
                 <p className="text-gray-600">
-                  {isEnrolled 
-                    ? "Click on any content item to view it here" 
-                    : "Enroll in this course to access the content"}
+                  {isEnrolled
+                    ? "Click on any content item to view it here"
+                    : "Select a lesson to preview it. Enroll to open the full content."}
                 </p>
               </CardContent>
             </Card>

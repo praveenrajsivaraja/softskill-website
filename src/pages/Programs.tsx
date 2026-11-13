@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Clock, Users, Star, Phone, MapPin, Loader2 } from 'lucide-react';
 import EnrollButton from '@/components/EnrollButton';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +25,7 @@ interface Program {
 const Programs = () => {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
 
@@ -186,7 +189,15 @@ const Programs = () => {
                       </div>
                     </CardContent>
 
-                    <CardFooter className="p-4 pt-0">
+                    <CardFooter className="p-4 pt-0 flex flex-col gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full border-kiki-purple-600 text-kiki-purple-600 hover:bg-kiki-purple-50"
+                        onClick={() => navigate(`/course/${program.id}`)}
+                      >
+                        View Details
+                      </Button>
                       <EnrollButton courseId={program.id} className="w-full text-sm" />
                     </CardFooter>
                   </Card>
