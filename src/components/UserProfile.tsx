@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { User, BookOpen, Calendar, Award, Clock, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { isCareerTestCourse } from '@/lib/courseCatalog';
 import { supabase } from '@/integrations/supabase/client';
 
 interface UserProfileProps {
@@ -21,6 +22,7 @@ interface Enrollment {
   course: {
     title: string;
     description: string;
+    course_type?: string | null;
   };
 }
 
@@ -38,9 +40,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ isOpen, onClose }) => {
   const [profileData, setProfileData] = useState<UserProfileData | null>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // MBTI course ID to exclude from profile enrollments
-  const MBTI_COURSE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
   useEffect(() => {
     if (isOpen && isAuthenticated && user) {
@@ -77,16 +76,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ isOpen, onClose }) => {
         .from('enrollments')
         .select(`
           *,
-          course:courses(title, description)
+          course:courses(title, description, course_type)
         `)
         .eq('student_id', user.id)
-        .neq('course_id', MBTI_COURSE_ID) // Exclude MBTI course
         .order('enrolled_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching enrollments:', error);
       } else {
-        setEnrollments(data || []);
+        setEnrollments((data || []).filter((enrollment) => !isCareerTestCourse(enrollment.course ?? {})));
       }
     } catch (error) {
       console.error('Error fetching enrollments:', error);

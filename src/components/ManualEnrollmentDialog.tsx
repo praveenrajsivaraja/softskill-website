@@ -34,9 +34,6 @@ const ManualEnrollmentDialog = ({ isOpen, onClose, onEnrollmentAdded }: ManualEn
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  // MBTI Career Test Course ID to filter out
-  const MBTI_COURSE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
-
   useEffect(() => {
     if (isOpen) {
       fetchUsersAndCourses();
@@ -60,7 +57,6 @@ const ManualEnrollmentDialog = ({ isOpen, onClose, onEnrollmentAdded }: ManualEn
         .from('courses')
         .select('id, title')
         .eq('status', 'active')
-        .neq('id', MBTI_COURSE_ID)
         .order('title');
 
       if (coursesError) throw coursesError;

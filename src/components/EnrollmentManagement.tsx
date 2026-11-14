@@ -62,9 +62,6 @@ const EnrollmentManagement = () => {
   const [deletingEnrollmentId, setDeletingEnrollmentId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // MBTI Career Test Course ID
-  const MBTI_COURSE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
-
   useEffect(() => {
     fetchData();
   }, []);
@@ -231,11 +228,7 @@ const EnrollmentManagement = () => {
             user_profile: userProfile,
             order_items: orderItems
           };
-        })
-        .filter(order => 
-          // Filter out orders that contain only MBTI test
-          !order.order_items.every(item => item.course.id === MBTI_COURSE_ID)
-        );
+        });
 
       console.log('Final combined orders (excluding MBTI):', combinedOrders);
       setPendingOrders(combinedOrders);
@@ -313,7 +306,6 @@ const EnrollmentManagement = () => {
 
       // Combine the data and filter out MBTI test enrollments
       const enrichedEnrollments = enrollmentsData
-        .filter(enrollment => enrollment.course_id !== MBTI_COURSE_ID)
         .map(enrollment => {
           const student = studentsData.find(s => s.id === enrollment.student_id);
           const course = coursesData.find(c => c.id === enrollment.course_id);

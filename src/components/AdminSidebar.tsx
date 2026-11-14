@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { 
   Users, 
   BookOpen, 
+  Brain,
   GraduationCap, 
   Bell,
   Home,
@@ -39,7 +40,13 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
       icon: BookOpen, 
       label: 'Courses', 
       path: '/admin/courses',
-      description: 'Manage course content'
+      description: 'Add, edit, and delete courses'
+    },
+    { 
+      icon: Brain, 
+      label: 'Career Test', 
+      path: '/admin/career-test',
+      description: 'Add, edit, and delete career tests'
     },
     { 
       icon: GraduationCap, 

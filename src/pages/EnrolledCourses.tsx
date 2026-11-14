@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { isCareerTestCourse } from '@/lib/courseCatalog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +20,7 @@ interface Course {
   price: number;
   duration: string | null;
   category: string | null;
+  course_type?: string | null;
 }
 
 interface Enrollment {
@@ -56,9 +58,6 @@ const EnrolledCourses = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('enrolled');
-
-  // MBTI course ID to exclude from enrollments listing
-  const MBTI_COURSE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
   useEffect(() => {
     if (user) {
@@ -162,7 +161,6 @@ const EnrolledCourses = () => {
           courses (*)
         `)
         .eq('student_id', user.id)
-        .neq('course_id', MBTI_COURSE_ID)
         .order('enrolled_at', { ascending: false });
 
       if (error) {
@@ -175,7 +173,9 @@ const EnrolledCourses = () => {
         return;
       }
 
-      const enrollmentsData = data?.map(enrollment => ({
+      const enrollmentsData = data
+        ?.filter((enrollment) => !isCareerTestCourse(enrollment.courses ?? {}))
+        .map(enrollment => ({
         ...enrollment,
         course: enrollment.courses
       })) as Enrollment[];
@@ -211,8 +211,8 @@ const EnrolledCourses = () => {
 
       const ordersData = data?.map(order => ({
         ...order,
-        order_items: order.order_items?.filter(item => 
-          item.courses?.id !== MBTI_COURSE_ID
+        order_items: order.order_items?.filter(item =>
+          !isCareerTestCourse(item.courses ?? {})
         ).map(item => ({
           course: item.courses,
           price: item.price

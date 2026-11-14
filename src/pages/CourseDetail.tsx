@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Users, Star, Play, Download, BookOpen } from 'lucide-react';
+import { ArrowLeft, Clock, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,14 +15,17 @@ import CourseSections from '@/components/CourseSections';
 interface Program {
   id: string;
   title: string;
-  description: string;
-  image_url: string;
+  description: string | null;
+  image_url: string | null;
   price: number;
-  original_price: number;
-  duration: string;
-  mode: string;
-  age_range: string;
-  category: string;
+  original_price: number | null;
+  duration: string | null;
+  mode: string | null;
+  age_range: string | null;
+  category: string | null;
+  total_lessons: number | null;
+  highlights: string[] | null;
+  learning_points: string[] | null;
 }
 
 const CourseDetail = () => {
@@ -201,27 +204,38 @@ const CourseDetail = () => {
                 {course.description}
               </p>
 
-              <div className="flex items-center gap-6 text-sm text-white/80 mb-6">
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span>4.8 (250+ reviews)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  <span>1,200+ students</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  <span>{course.duration}</span>
-                </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-white/80 mb-6">
+                {course.duration && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span>{course.duration}</span>
+                  </div>
+                )}
+                {course.mode && <span>{course.mode}</span>}
+                {course.age_range && <span>{course.age_range}</span>}
+                {course.total_lessons != null && course.total_lessons > 0 && (
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    <span>{course.total_lessons} lessons</span>
+                  </div>
+                )}
               </div>
+              {course.highlights && course.highlights.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {course.highlights.map((highlight) => (
+                    <Badge key={highlight} className="bg-white/20 text-white border-white/30">
+                      {highlight}
+                    </Badge>
+                  ))}
+                </div>
+              )}
 
               <div className="flex items-center gap-4 mb-6">
                 <div className="text-2xl font-bold">₹{course.price}</div>
                 {course.original_price && (
                   <div className="text-lg text-white/60 line-through">₹{course.original_price}</div>
                 )}
-                {course.original_price && (
+                {course.original_price != null && course.original_price > course.price && (
                   <Badge className="bg-red-500 text-white">
                     {Math.round((1 - course.price / course.original_price) * 100)}% OFF
                   </Badge>
@@ -236,19 +250,13 @@ const CourseDetail = () => {
             </div>
 
             <div className="relative">
-              <img 
-                src={course.image_url} 
-                alt={course.title} 
-                className="rounded-lg shadow-2xl w-full h-64 object-cover" 
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Button 
-                  size="lg" 
-                  className="bg-white text-kiki-purple-600 hover:bg-white/90 rounded-full w-16 h-16"
-                >
-                  <Play className="w-6 h-6 ml-1" />
-                </Button>
-              </div>
+              {course.image_url && (
+                <img
+                  src={course.image_url}
+                  alt={course.title}
+                  className="rounded-lg shadow-2xl w-full h-64 object-cover"
+                />
+              )}
             </div>
           </div>
         </div>
@@ -257,10 +265,9 @@ const CourseDetail = () => {
       {/* Course Content - Full Width Layout */}
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
@@ -269,26 +276,30 @@ const CourseDetail = () => {
                 <CardTitle>About This Course</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600 mb-4">
-                  {course.description}
-                </p>
+                {course.description && (
+                  <p className="text-gray-600 mb-4">{course.description}</p>
+                )}
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-semibold mb-2">What You'll Learn</h4>
-                    <ul className="space-y-1 text-sm text-gray-600">
-                      <li>• Comprehensive understanding of the subject</li>
-                      <li>• Practical skills and real-world applications</li>
-                      <li>• Industry best practices and techniques</li>
-                      <li>• Hands-on projects and exercises</li>
-                    </ul>
-                  </div>
+                  {course.learning_points && course.learning_points.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold mb-2">What You'll Learn</h4>
+                      <ul className="space-y-1 text-sm text-gray-600">
+                        {course.learning_points.map((point) => (
+                          <li key={point}>• {point}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <div>
                     <h4 className="font-semibold mb-2">Course Details</h4>
                     <ul className="space-y-1 text-sm text-gray-600">
-                      <li>• Duration: {course.duration}</li>
-                      <li>• Mode: {course.mode}</li>
-                      <li>• Age Range: {course.age_range}</li>
-                      <li>• Category: {course.category}</li>
+                      {course.duration && <li>• Duration: {course.duration}</li>}
+                      {course.mode && <li>• Mode: {course.mode}</li>}
+                      {course.age_range && <li>• Age Range: {course.age_range}</li>}
+                      {course.category && <li>• Category: {course.category}</li>}
+                      {course.total_lessons != null && course.total_lessons > 0 && (
+                        <li>• Lessons: {course.total_lessons}</li>
+                      )}
                     </ul>
                   </div>
                 </div>
@@ -300,36 +311,7 @@ const CourseDetail = () => {
             <CourseSections courseId={course.id} isEnrolled={isEnrolled} />
           </TabsContent>
 
-          <TabsContent value="reviews" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Student Reviews</CardTitle>
-                <CardDescription>
-                  See what our students have to say about this course
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[1, 2, 3].map(review => (
-                    <div key={review} className="border-b pb-4 last:border-b-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex items-center">
-                          {[1, 2, 3, 4, 5].map(star => (
-                            <Star key={star} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          ))}
-                        </div>
-                        <span className="font-medium">Student {review}</span>
-                      </div>
-                      <p className="text-gray-600 text-sm">
-                        This course exceeded my expectations. The content is well-structured and the instructor explains concepts clearly.
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          </Tabs>
       </div>
     </div>
   );

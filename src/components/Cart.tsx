@@ -71,7 +71,9 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose, onCartUpdate }) => {
             description,
             image_url,
             price,
-            original_price
+            original_price,
+            course_type,
+            highlights
           )
         `)
         .eq('user_id', user.id);

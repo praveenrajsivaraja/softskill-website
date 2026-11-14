@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
 import { useToast } from '@/hooks/use-toast';
 import { Brain, Lock, CheckCircle, ArrowLeft } from 'lucide-react';
 
@@ -31,9 +32,6 @@ const MBTITestPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Correct UUID that exists in the database
-  const MBTI_COURSE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
-
   useEffect(() => {
     checkAccess();
   }, [user, isAuthenticated]);
@@ -45,10 +43,26 @@ const MBTITestPage = () => {
     }
 
     try {
-      console.log('Checking access for course ID:', MBTI_COURSE_ID);
+      const { data: careerTests, error: careerTestError } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('course_type', COURSE_TYPE_CAREER_TEST);
+
+      if (careerTestError) {
+        console.error('Error loading career tests:', careerTestError);
+      }
+
+      const careerTestIds = (careerTests ?? []).map((course) => course.id);
+      if (careerTestIds.length === 0) {
+        setHasAccess(false);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Checking access for career tests:', careerTestIds);
       console.log('User ID:', user.id);
       
-      // Check if user has confirmed order for the MBTI test
+      // Check if user has confirmed order for a career test
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select(`
@@ -60,7 +74,7 @@ const MBTITestPage = () => {
         `)
         .eq('user_id', user.id)
         .eq('status', 'confirmed')
-        .eq('order_items.course_id', MBTI_COURSE_ID);
+        .in('order_items.course_id', careerTestIds);
 
       if (orderError) {
         console.error('Error checking order access:', orderError);
@@ -74,7 +88,7 @@ const MBTITestPage = () => {
         .from('enrollments')
         .select('id, status')
         .eq('student_id', user.id)
-        .eq('course_id', MBTI_COURSE_ID)
+        .in('course_id', careerTestIds)
         .eq('status', 'enrolled');
 
       if (enrollmentError) {

@@ -23,6 +23,8 @@ interface CartItem {
     price: number;
     original_price: number;
     category: string;
+    course_type?: string | null;
+    highlights?: string[] | null;
   };
 }
 
@@ -64,7 +66,9 @@ const Cart = () => {
             image_url,
             price,
             original_price,
-            category
+            category,
+            course_type,
+            highlights
           )
         `)
         .eq('user_id', user.id);

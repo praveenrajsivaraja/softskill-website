@@ -26,9 +26,6 @@ const CouponInput: React.FC<CouponInputProps> = ({
   const [isValidating, setIsValidating] = useState(false);
   const { toast } = useToast();
 
-  // MBTI Career Test Course ID
-  const MBTI_COURSE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
-
   const validateAndApplyCoupon = async () => {
     if (!couponCode.trim()) {
       toast({
@@ -107,19 +104,21 @@ const CouponInput: React.FC<CouponInputProps> = ({
           const restrictedCourseIds = coupon.course_restrictions;
           console.log('Coupon restricted to course IDs:', restrictedCourseIds);
           
-          if (restrictedCourseIds.includes(MBTI_COURSE_ID)) {
-            toast({
-              title: "Course Restriction",
-              description: "This coupon is only valid for the MBTI Personality Test course. Please add it to your cart first.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Course Restriction",
-              description: "This coupon is not applicable to the courses in your cart.",
-              variant: "destructive",
-            });
-          }
+          const { data: restrictedCourses } = await supabase
+            .from('courses')
+            .select('title')
+            .in('id', restrictedCourseIds);
+          const courseNames = (restrictedCourses ?? [])
+            .map((course) => course.title)
+            .filter(Boolean)
+            .join(', ');
+          toast({
+            title: "Course Restriction",
+            description: courseNames
+              ? `This coupon only applies to: ${courseNames}.`
+              : "This coupon is not applicable to the courses in your cart.",
+            variant: "destructive",
+          });
           return;
         }
       }

@@ -228,12 +228,15 @@ export type Database = {
         Row: {
           age_range: string | null
           category: string | null
+          course_type: string
           created_at: string | null
           description: string | null
           duration: string | null
+          highlights: string[]
           id: string
           image_url: string | null
           instructor_id: string | null
+          learning_points: string[]
           mode: string | null
           original_price: number | null
           price: number
@@ -245,12 +248,15 @@ export type Database = {
         Insert: {
           age_range?: string | null
           category?: string | null
+          course_type?: string
           created_at?: string | null
           description?: string | null
           duration?: string | null
+          highlights?: string[]
           id?: string
           image_url?: string | null
           instructor_id?: string | null
+          learning_points?: string[]
           mode?: string | null
           original_price?: number | null
           price: number
@@ -262,12 +268,15 @@ export type Database = {
         Update: {
           age_range?: string | null
           category?: string | null
+          course_type?: string
           created_at?: string | null
           description?: string | null
           duration?: string | null
+          highlights?: string[]
           id?: string
           image_url?: string | null
           instructor_id?: string | null
+          learning_points?: string[]
           mode?: string | null
           original_price?: number | null
           price?: number
@@ -336,6 +345,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      page_sections: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          order_index: number
+          page_key: string
+          section_key: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          page_key: string
+          section_key: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          page_key?: string
+          section_key?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       homepage_content: {
         Row: {

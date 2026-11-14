@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, Users, Star, Phone, MapPin, Loader2 } from 'lucide-react';
+import { Clock, BookOpen, Phone, MapPin, Loader2 } from 'lucide-react';
+import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
 import EnrollButton from '@/components/EnrollButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -16,10 +17,11 @@ interface Program {
   image_url: string;
   price: number;
   original_price: number;
-  duration: string;
-  mode: string;
-  age_range: string;
-  category: string;
+  duration: string | null;
+  mode: string | null;
+  age_range: string | null;
+  category: string | null;
+  total_lessons: number | null;
 }
 
 const Programs = () => {
@@ -28,9 +30,6 @@ const Programs = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
-
-  // MBTI course ID to exclude from programs listing
-  const MBTI_COURSE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
   useEffect(() => {
     fetchPrograms();
@@ -43,7 +42,7 @@ const Programs = () => {
         .from('courses')
         .select('*')
         .eq('status', 'active')
-        .neq('id', MBTI_COURSE_ID) // Exclude MBTI course
+        .neq('course_type', COURSE_TYPE_CAREER_TEST)
         .order('created_at', { ascending: true });
 
       if (coursesError) {
@@ -151,14 +150,9 @@ const Programs = () => {
                     </div>
 
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <span className="text-xs font-medium text-gray-700">4.8</span>
-                        </div>
-                        <span className="text-xs text-gray-500">•</span>
-                        <span className="text-xs text-gray-500">{program.age_range}</span>
-                      </div>
+                      {program.age_range && (
+                        <p className="text-xs text-gray-500 mb-2">{program.age_range}</p>
+                      )}
 
                       <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-kiki-purple-600 transition-colors line-clamp-2">
                         {program.title}
@@ -168,15 +162,20 @@ const Programs = () => {
                         {program.description}
                       </p>
 
-                      <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{program.duration}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          <span>150+</span>
-                        </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mb-3">
+                        {program.duration && (
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{program.duration}</span>
+                          </div>
+                        )}
+                        {program.mode && <span>{program.mode}</span>}
+                        {program.total_lessons != null && program.total_lessons > 0 && (
+                          <div className="flex items-center gap-1">
+                            <BookOpen className="h-3 w-3" />
+                            <span>{program.total_lessons} lessons</span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between mb-3">

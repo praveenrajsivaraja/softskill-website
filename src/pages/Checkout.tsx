@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShoppingCart, CreditCard, ArrowLeft, Loader2, Tag, AlertTriangle } from 'lucide-react';
 import { loadRazorpayScript, createRazorpayOrder, initializeRazorpay } from '@/utils/razorpay';
+import { isCareerTestCourse } from '@/lib/courseCatalog';
 
 interface CartItem {
   id: string;
@@ -18,6 +19,8 @@ interface CartItem {
     title: string;
     price: number;
     image_url: string | null;
+    course_type?: string | null;
+    highlights?: string[] | null;
   };
 }
 
@@ -39,9 +42,6 @@ const Checkout = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  // MBTI Career Test Course ID
-  const MBTI_COURSE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -80,7 +80,9 @@ const Checkout = () => {
             id,
             title,
             price,
-            image_url
+            image_url,
+            course_type,
+            highlights
           )
         `)
         .eq('user_id', user.id);
@@ -278,8 +280,8 @@ const Checkout = () => {
               });
 
               // Navigate based on cart contents
-              const hasMBTITest = cartItems.some(item => item.course.id === MBTI_COURSE_ID);
-              if (hasMBTITest) {
+              const hasCareerTest = cartItems.some(item => isCareerTestCourse(item.course));
+              if (hasCareerTest) {
                 navigate('/career-test');
               } else {
                 navigate('/enrolled-courses');
@@ -352,7 +354,7 @@ const Checkout = () => {
     }
   };
 
-  const hasMBTITest = cartItems.some(item => item.course.id === MBTI_COURSE_ID);
+  const hasCareerTest = cartItems.some(item => isCareerTestCourse(item.course));
 
   if (loading) {
     return (
@@ -482,11 +484,11 @@ const Checkout = () => {
                           <span className="text-lg font-bold text-kiki-purple-600">
                             ₹{item.course.price}
                           </span>
-                          {item.course.id === MBTI_COURSE_ID && (
-                            <Badge className="bg-green-100 text-green-800">
-                              Instant Access
+                          {item.course.highlights?.map((highlight) => (
+                            <Badge key={highlight} className="bg-green-100 text-green-800">
+                              {highlight}
                             </Badge>
-                          )}
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -519,14 +521,16 @@ const Checkout = () => {
                     </div>
                   </div>
 
-                  {hasMBTITest && (
+                  {hasCareerTest && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-green-800">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="font-medium">MBTI Test - Instant Access</span>
+                        <span className="font-medium">
+                          {cartItems.find((item) => isCareerTestCourse(item.course))?.course.title}
+                        </span>
                       </div>
                       <p className="text-sm text-green-700 mt-1">
-                        You'll get immediate access to the MBTI test after payment.
+                        You'll get access to this career test after payment.
                       </p>
                     </div>
                   )}
@@ -551,8 +555,8 @@ const Checkout = () => {
                       <p>• Supports Credit/Debit Cards, UPI, Net Banking & Wallets</p>
                       <p>• Amount: <strong>₹{checkoutData?.total || 0}</strong></p>
                       <p>• Automatic enrollment upon successful payment</p>
-                      {hasMBTITest && (
-                        <p>• MBTI test access is granted immediately</p>
+                      {hasCareerTest && (
+                        <p>• Career test access is granted after payment</p>
                       )}
                     </div>
                   </div>

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
 
 interface EnrollButtonProps {
   courseId: string;
@@ -23,9 +24,26 @@ const EnrollButton: React.FC<EnrollButtonProps> = ({
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [inCart, setInCart] = useState(false);
+  const [isCareerTest, setIsCareerTest] = useState(false);
 
-  // Correct UUID that exists in the database
-  const MBTI_COURSE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+  React.useEffect(() => {
+    const loadCourseType = async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('course_type')
+        .eq('id', courseId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading course type:', error);
+        return;
+      }
+
+      setIsCareerTest(data?.course_type === COURSE_TYPE_CAREER_TEST);
+    };
+
+    loadCourseType();
+  }, [courseId]);
 
   React.useEffect(() => {
     if (isAuthenticated && user?.id && !isEnrolled) {
@@ -76,7 +94,7 @@ const EnrollButton: React.FC<EnrollButtonProps> = ({
 
     if (isEnrolled) {
       // Check if this is the MBTI test course
-      if (courseId === MBTI_COURSE_ID) {
+      if (isCareerTest) {
         console.log('Navigating to MBTI test for Assessment course');
         navigate('/mbti-test');
       } else {
@@ -191,7 +209,7 @@ const EnrollButton: React.FC<EnrollButtonProps> = ({
         className={`bg-green-600 hover:bg-green-700 ${className}`}
       >
         <Check className="w-4 h-4 mr-2" />
-        {courseId === MBTI_COURSE_ID ? 'Start Test' : 'Continue Course'}
+        {isCareerTest ? 'Start Test' : 'Continue Course'}
       </Button>
     );
   }

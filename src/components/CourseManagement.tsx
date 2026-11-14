@@ -14,25 +14,50 @@ import { Label } from '@/components/ui/label';
 import { BookOpen, Plus, Edit, Trash2, Users, Settings } from 'lucide-react';
 import AdminSearchableTab from './AdminSearchableTab';
 import AdminSectionManagement from './AdminSectionManagement';
+import { COURSE_TYPE_CAREER_TEST, COURSE_TYPE_COURSE, linesToList, listToLines } from '@/lib/courseCatalog';
 
 interface Course {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   price: number;
   original_price: number | null;
-  category: string;
-  duration: string;
-  age_range: string;
-  mode: string;
+  category: string | null;
+  duration: string | null;
+  age_range: string | null;
+  mode: string | null;
   image_url: string | null;
-  status: string;
-  total_lessons: number;
-  created_at: string;
-  updated_at: string;
+  status: string | null;
+  total_lessons: number | null;
+  course_type: string;
+  highlights: string[] | null;
+  learning_points: string[] | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
-const CourseManagement = () => {
+interface CourseManagementProps {
+  catalog?: 'all' | 'course' | 'career_test';
+}
+
+const emptyCourseForm = {
+  title: '',
+  description: '',
+  price: '',
+  original_price: '',
+  category: '',
+  duration: '',
+  age_range: '',
+  mode: '',
+  image_url: '',
+  status: 'active',
+  total_lessons: '',
+  course_type: COURSE_TYPE_COURSE,
+  highlights: '',
+  learning_points: '',
+};
+
+const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,37 +67,36 @@ const CourseManagement = () => {
 
   // Form state
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    price: '',
-    original_price: '',
-    category: '',
-    duration: '',
-    age_range: '',
-    mode: '',
-    image_url: '',
-    status: 'active',
-    total_lessons: ''
+    ...emptyCourseForm,
+    course_type: catalog === 'career_test' ? COURSE_TYPE_CAREER_TEST : COURSE_TYPE_COURSE,
   });
 
   useEffect(() => {
     fetchCourses();
   }, []);
 
+  const matchesCatalog = (course: Course) => {
+    if (catalog === 'career_test') return course.course_type === COURSE_TYPE_CAREER_TEST;
+    if (catalog === 'course') return course.course_type !== COURSE_TYPE_CAREER_TEST;
+    return true;
+  };
+
   useEffect(() => {
-    setFilteredCourses(courses);
-  }, [courses]);
+    setFilteredCourses(courses.filter(matchesCatalog));
+  }, [courses, catalog]);
 
   const handleSearch = (searchTerm: string) => {
     if (!searchTerm.trim()) {
-      setFilteredCourses(courses);
+      setFilteredCourses(courses.filter(matchesCatalog));
       return;
     }
     
     const filtered = courses.filter(course =>
-      course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.category?.toLowerCase().includes(searchTerm.toLowerCase())
+      matchesCatalog(course) && (
+        course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.category?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
     );
     setFilteredCourses(filtered);
   };
@@ -114,6 +138,9 @@ const CourseManagement = () => {
         image_url: formData.image_url || null,
         status: formData.status as 'active' | 'inactive' | 'archived',
         total_lessons: formData.total_lessons ? parseInt(formData.total_lessons) : 0,
+        course_type: catalog === 'career_test' ? COURSE_TYPE_CAREER_TEST : formData.course_type,
+        highlights: linesToList(formData.highlights),
+        learning_points: linesToList(formData.learning_points),
         updated_at: new Date().toISOString()
       };
 
@@ -171,17 +198,8 @@ const CourseManagement = () => {
 
   const resetForm = () => {
     setFormData({
-      title: '',
-      description: '',
-      price: '',
-      original_price: '',
-      category: '',
-      duration: '',
-      age_range: '',
-      mode: '',
-      image_url: '',
-      status: 'active',
-      total_lessons: ''
+      ...emptyCourseForm,
+      course_type: catalog === 'career_test' ? COURSE_TYPE_CAREER_TEST : COURSE_TYPE_COURSE,
     });
     setEditingCourse(null);
   };
@@ -198,8 +216,11 @@ const CourseManagement = () => {
       age_range: course.age_range || '',
       mode: course.mode || '',
       image_url: course.image_url || '',
-      status: course.status,
-      total_lessons: course.total_lessons?.toString() || ''
+      status: course.status || 'active',
+      total_lessons: course.total_lessons?.toString() || '',
+      course_type: course.course_type || COURSE_TYPE_COURSE,
+      highlights: listToLines(course.highlights),
+      learning_points: listToLines(course.learning_points),
     });
     setIsDialogOpen(true);
   };
@@ -241,10 +262,12 @@ const CourseManagement = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
-            Course Management
+            {catalog === 'career_test' ? 'Career Test Courses' : 'Course Management'}
           </CardTitle>
           <CardDescription>
-            Manage courses and their content sections
+            {catalog === 'career_test'
+              ? 'Add, edit, or delete career tests stored in the courses table'
+              : 'Add, edit, or delete courses and their saved details'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -252,12 +275,14 @@ const CourseManagement = () => {
             <TabsList>
               <TabsTrigger value="courses" className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
-                Courses
+                {catalog === 'career_test' ? 'Career Tests' : 'Courses'}
               </TabsTrigger>
-              <TabsTrigger value="sections" className="flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                Sections & Content
-              </TabsTrigger>
+              {catalog !== 'career_test' && (
+                <TabsTrigger value="sections" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Sections & Content
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="courses">
@@ -267,21 +292,25 @@ const CourseManagement = () => {
               >
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold">All Courses</h3>
+                    <h3 className="text-lg font-semibold">
+                      {catalog === 'career_test' ? 'Career Tests' : 'All Courses'}
+                    </h3>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                       <DialogTrigger asChild>
                         <Button onClick={resetForm}>
                           <Plus className="h-4 w-4 mr-2" />
-                          Add Course
+                          {catalog === 'career_test' ? 'Add Career Test' : 'Add Course'}
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="max-w-2xl">
                         <DialogHeader>
                           <DialogTitle>
-                            {editingCourse ? 'Edit Course' : 'Add New Course'}
+                            {editingCourse
+                              ? catalog === 'career_test' ? 'Edit Career Test' : 'Edit Course'
+                              : catalog === 'career_test' ? 'Add Career Test' : 'Add New Course'}
                           </DialogTitle>
                           <DialogDescription>
-                            {editingCourse ? 'Update course details' : 'Create a new course'}
+                            Details are saved to the database and shown on the site.
                           </DialogDescription>
                         </DialogHeader>
                         <div className="grid grid-cols-2 gap-4">
@@ -352,16 +381,47 @@ const CourseManagement = () => {
                           </div>
                           <div>
                             <Label htmlFor="mode">Mode</Label>
-                            <Select value={formData.mode} onValueChange={(value) => setFormData({ ...formData, mode: value })}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select mode" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="online">Online</SelectItem>
-                                <SelectItem value="offline">Offline</SelectItem>
-                                <SelectItem value="hybrid">Hybrid</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Input
+                              id="mode"
+                              value={formData.mode}
+                              onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
+                              placeholder="Online, Offline, or Hybrid"
+                            />
+                          </div>
+                          {catalog !== 'career_test' && (
+                            <div>
+                              <Label htmlFor="course_type">Type</Label>
+                              <Select
+                                value={formData.course_type}
+                                onValueChange={(value) => setFormData({ ...formData, course_type: value })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={COURSE_TYPE_COURSE}>Course</SelectItem>
+                                  <SelectItem value={COURSE_TYPE_CAREER_TEST}>Career Test</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          <div className="col-span-2">
+                            <Label htmlFor="highlights">Highlights</Label>
+                            <Textarea
+                              id="highlights"
+                              value={formData.highlights}
+                              onChange={(e) => setFormData({ ...formData, highlights: e.target.value })}
+                              placeholder="One highlight per line"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <Label htmlFor="learning_points">What You'll Learn</Label>
+                            <Textarea
+                              id="learning_points"
+                              value={formData.learning_points}
+                              onChange={(e) => setFormData({ ...formData, learning_points: e.target.value })}
+                              placeholder="One learning point per line"
+                            />
                           </div>
                           <div>
                             <Label htmlFor="total_lessons">Total Lessons</Label>
@@ -401,7 +461,7 @@ const CourseManagement = () => {
                             Cancel
                           </Button>
                           <Button onClick={handleSubmit}>
-                            {editingCourse ? 'Update' : 'Create'} Course
+                            {editingCourse ? 'Update' : 'Create'}
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -428,7 +488,8 @@ const CourseManagement = () => {
                                 )}
                                 <span>{course.category}</span>
                                 <span>{course.duration}</span>
-                                <span>{course.total_lessons} lessons</span>
+                                <span>{course.total_lessons ?? 0} lessons</span>
+                                <span>{course.course_type === COURSE_TYPE_CAREER_TEST ? 'Career test' : 'Course'}</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
@@ -462,9 +523,11 @@ const CourseManagement = () => {
               </AdminSearchableTab>
             </TabsContent>
 
-            <TabsContent value="sections">
-              <AdminSectionManagement />
-            </TabsContent>
+            {catalog !== 'career_test' && (
+              <TabsContent value="sections">
+                <AdminSectionManagement />
+              </TabsContent>
+            )}
           </Tabs>
         </CardContent>
       </Card>
