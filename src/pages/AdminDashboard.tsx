@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,7 @@ const AdminDashboard = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const isLoggingOut = useRef(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Check if user is admin
@@ -57,14 +58,14 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (user) {
       checkAdminStatus();
-    } else if (!loading) {
+    } else if (!loading && !isLoggingOut.current) {
       navigate('/admin-login');
     }
   }, [user, loading, navigate]);
 
   const handleLogout = async () => {
+    isLoggingOut.current = true;
     await logout();
-    navigate('/');
   };
 
   const handleViewSite = () => {

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, User, UserPlus, AlertCircle, BookOpen, Eye, EyeOff } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { addPendingCourseToCart, readPendingCartCourseId } from '@/lib/pendingCart';
 
 const Login = () => {
   const { isAuthenticated, login, signUp, signInWithGoogle, loading } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
@@ -42,14 +45,32 @@ const Login = () => {
 
   const checkUserRoleAndRedirect = async () => {
     try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) {
+        navigate('/');
+        return;
+      }
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('id', userId)
         .single();
+
+      const hasPendingCourse = Boolean(readPendingCartCourseId());
+      const addedPendingCourse = await addPendingCourseToCart(userId);
+
+      if (hasPendingCourse && addedPendingCourse) {
+        toast({
+          title: 'Added to cart',
+          description: 'The course you selected is now in your cart.',
+        });
+      }
 
       if (profile?.role === 'admin') {
         navigate('/admin');
+      } else if (hasPendingCourse && addedPendingCourse) {
+        navigate('/cart');
       } else {
         navigate('/');
       }

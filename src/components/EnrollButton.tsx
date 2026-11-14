@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
+import { rememberCourseForCart } from '@/lib/pendingCart';
 
 interface EnrollButtonProps {
   courseId: string;
@@ -83,10 +84,10 @@ const EnrollButton: React.FC<EnrollButtonProps> = ({
     console.log('Handle enroll clicked:', { isAuthenticated, isEnrolled, inCart, courseId });
 
     if (!isAuthenticated) {
+      rememberCourseForCart(courseId);
       toast({
-        title: "Login Required",
-        description: "Please log in to add courses to cart.",
-        variant: "destructive",
+        title: "Login required",
+        description: "Sign in and this course will be added to your cart.",
       });
       navigate('/login');
       return;

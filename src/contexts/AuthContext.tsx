@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthRedirectUrl, isEmailLinkType, readEmailLinkError } from '@/lib/authEmailLink';
+import { addPendingCourseToCart, readPendingCartCourseId } from '@/lib/pendingCart';
 import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
@@ -50,9 +51,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+
+      const shouldAddPendingCourse = event === 'SIGNED_IN' || event === 'INITIAL_SESSION';
+      const path = window.location.pathname;
+      const isLoginPath = path === '/login' || path === '/admin-login';
+      if (!shouldAddPendingCourse || !session?.user || isLoginPath || !readPendingCartCourseId()) {
+        return;
+      }
+
+      const userId = session.user.id;
+      window.setTimeout(async () => {
+        const added = await addPendingCourseToCart(userId);
+        if (!added) {
+          return;
+        }
+        toast({
+          title: 'Added to cart',
+          description: 'The course you selected is now in your cart.',
+        });
+        navigate('/cart');
+      }, 0);
     });
 
     return () => subscription.unsubscribe();
@@ -174,10 +195,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await supabase.auth.signOut();
+      navigate('/');
       toast({
         title: "Signed out",
         description: "You have been successfully signed out.",
-        variant: "destructive",
       });
     } catch (error) {
       console.error('Logout error:', error);
