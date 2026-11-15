@@ -186,6 +186,35 @@ export type Database = {
         }
         Relationships: []
       }
+      course_attachments: {
+        Row: {
+          attachment_name: string | null
+          attachment_url: string
+          course_id: string
+          updated_at: string
+        }
+        Insert: {
+          attachment_name?: string | null
+          attachment_url: string
+          course_id: string
+          updated_at?: string
+        }
+        Update: {
+          attachment_name?: string | null
+          attachment_url?: string
+          course_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_attachments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_sections: {
         Row: {
           course_id: string

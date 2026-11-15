@@ -15,7 +15,7 @@ import { BookOpen, Plus, Edit, Trash2, Users, Settings } from 'lucide-react';
 import AdminSearchableTab from './AdminSearchableTab';
 import AdminSectionManagement from './AdminSectionManagement';
 import { COURSE_TYPE_CAREER_TEST, COURSE_TYPE_COURSE, linesToList, listToLines } from '@/lib/courseCatalog';
-import { isGoogleDriveAttachmentUrl } from '@/lib/courseAttachment';
+import { fetchPaidCourseAttachments, isAttachmentTableMissing, isGoogleDriveAttachmentUrl } from '@/lib/courseAttachment';
 
 interface Course {
   id: string;
@@ -114,7 +114,16 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setCourses(data || []);
+      const attachments = await fetchPaidCourseAttachments((data || []).map((course) => course.id));
+      const attachmentByCourseId = new Map(attachments.map((attachment) => [attachment.courseId, attachment]));
+      setCourses((data || []).map((course) => {
+        const attachment = attachmentByCourseId.get(course.id);
+        return {
+          ...course,
+          attachment_name: attachment?.attachmentName ?? course.attachment_name ?? null,
+          attachment_url: attachment?.attachmentUrl ?? course.attachment_url ?? null,
+        };
+      }));
     } catch (error) {
       console.error('Error fetching courses:', error);
       toast({
@@ -156,11 +165,10 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
         course_type: catalog === 'career_test' ? COURSE_TYPE_CAREER_TEST : formData.course_type,
         highlights: linesToList(formData.highlights),
         learning_points: linesToList(formData.learning_points),
-        attachment_name: formData.attachment_name.trim() || null,
-        attachment_url: attachmentUrl || null,
         updated_at: new Date().toISOString()
       };
 
+      let courseId = editingCourse?.id;
       if (editingCourse) {
         const { error } = await supabase
           .from('courses')
@@ -168,24 +176,62 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
           .eq('id', editingCourse.id);
 
         if (error) throw error;
-        toast({ title: "Success", description: "Course updated successfully." });
       } else {
-        const { error } = await supabase
+        const { data: createdCourse, error } = await supabase
           .from('courses')
-          .insert(courseData);
+          .insert(courseData)
+          .select('id')
+          .single();
 
         if (error) throw error;
-        toast({ title: "Success", description: "Course created successfully." });
+        courseId = createdCourse.id;
       }
+
+      if (!courseId) {
+        throw new Error('The course was saved without an id, so the attachment could not be stored.');
+      }
+
+      if (attachmentUrl) {
+        const { error: attachmentError } = await supabase
+          .from('course_attachments')
+          .upsert({
+            course_id: courseId,
+            attachment_name: formData.attachment_name.trim() || null,
+            attachment_url: attachmentUrl,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'course_id' });
+
+        if (attachmentError) {
+          if (isAttachmentTableMissing(attachmentError)) {
+            throw new Error('Run the course attachment SQL in Supabase before saving a Google Drive link.');
+          }
+          throw attachmentError;
+        }
+      } else if (editingCourse) {
+        const { error: attachmentError } = await supabase
+          .from('course_attachments')
+          .delete()
+          .eq('course_id', courseId);
+
+        if (attachmentError && !isAttachmentTableMissing(attachmentError)) throw attachmentError;
+      }
+
+      toast({
+        title: "Success",
+        description: editingCourse ? "Course updated successfully." : "Course created successfully.",
+      });
 
       resetForm();
       setIsDialogOpen(false);
       fetchCourses();
     } catch (error) {
       console.error('Error saving course:', error);
+      const description = error instanceof Error && error.message.startsWith('Run the course attachment SQL')
+        ? error.message
+        : "Failed to save course.";
       toast({
         title: "Error",
-        description: "Failed to save course.",
+        description,
         variant: "destructive",
       });
     }

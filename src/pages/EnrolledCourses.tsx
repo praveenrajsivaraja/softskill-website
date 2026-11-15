@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BookOpen, Calendar, Clock, Eye, FileText, Download, Loader2, RefreshCw } from 'lucide-react';
 import ExploreButton from '@/components/ExploreButton';
 import ProgramAttachmentDownload from '@/components/ProgramAttachmentDownload';
+import { fetchPaidCourseAttachments, PaidCourseAttachment } from '@/lib/courseAttachment';
 
 interface Course {
   id: string;
@@ -23,8 +24,6 @@ interface Course {
   duration: string | null;
   category: string | null;
   course_type?: string | null;
-  attachment_name?: string | null;
-  attachment_url?: string | null;
 }
 
 interface Enrollment {
@@ -58,6 +57,7 @@ const EnrolledCourses = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [paidAttachments, setPaidAttachments] = useState<Record<string, PaidCourseAttachment>>({});
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,7 +162,7 @@ const EnrolledCourses = () => {
         .from('enrollments')
         .select(`
           *,
-          courses (*)
+          courses (id, title, description, image_url, price, duration, category, course_type)
         `)
         .eq('student_id', user.id)
         .order('enrolled_at', { ascending: false });
@@ -185,7 +185,10 @@ const EnrolledCourses = () => {
       })) as Enrollment[];
 
       console.log('Enrollments fetched:', enrollmentsData);
-      setEnrollments(enrollmentsData || []);
+      const visibleEnrollments = enrollmentsData || [];
+      setEnrollments(visibleEnrollments);
+      const attachments = await fetchPaidCourseAttachments(visibleEnrollments.map((enrollment) => enrollment.course_id));
+      setPaidAttachments(Object.fromEntries(attachments.map((attachment) => [attachment.courseId, attachment])));
     } catch (error) {
       console.error('Error fetching enrollments:', error);
     }
@@ -202,7 +205,7 @@ const EnrolledCourses = () => {
           *,
           order_items (
             price,
-            courses (*)
+            courses (id, title, description, image_url, price, duration, category, course_type)
           )
         `)
         .eq('user_id', user.id)
@@ -379,11 +382,13 @@ const EnrolledCourses = () => {
                       </div>
                       
                       <div className="flex flex-col gap-2">
-                        <ProgramAttachmentDownload
-                          attachmentUrl={enrollment.course.attachment_url}
-                          attachmentName={enrollment.course.attachment_name}
-                          className="w-full"
-                        />
+                        {paidAttachments[enrollment.course.id] && (
+                          <ProgramAttachmentDownload
+                            attachmentUrl={paidAttachments[enrollment.course.id].attachmentUrl}
+                            attachmentName={paidAttachments[enrollment.course.id].attachmentName}
+                            className="w-full"
+                          />
+                        )}
                         <ExploreButton 
                           courseId={enrollment.course.id} 
                           courseName={enrollment.course.title}

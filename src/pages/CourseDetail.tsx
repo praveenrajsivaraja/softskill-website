@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import EnrollButton from '@/components/EnrollButton';
 import ProgramAttachmentDownload from '@/components/ProgramAttachmentDownload';
+import { fetchPaidCourseAttachments } from '@/lib/courseAttachment';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
 import CourseSections from '@/components/CourseSections';
 
@@ -28,8 +29,6 @@ interface Program {
   total_lessons: number | null;
   highlights: string[] | null;
   learning_points: string[] | null;
-  attachment_name: string | null;
-  attachment_url: string | null;
 }
 
 const CourseDetail = () => {
@@ -37,6 +36,7 @@ const CourseDetail = () => {
   const [course, setCourse] = useState<Program | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [paidAttachment, setPaidAttachment] = useState<{ name: string | null; url: string } | null>(null);
   const [enrollmentLoading, setEnrollmentLoading] = useState(true);
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
@@ -52,10 +52,24 @@ const CourseDetail = () => {
   useEffect(() => {
     if (isAuthenticated && user?.id && courseId) {
       checkEnrollmentStatus();
+      loadPaidAttachment();
     } else {
+      setPaidAttachment(null);
       setEnrollmentLoading(false);
     }
   }, [courseId, user, isAuthenticated]);
+
+  const loadPaidAttachment = async () => {
+    if (!courseId) {
+      setPaidAttachment(null);
+      return;
+    }
+
+    const [attachment] = await fetchPaidCourseAttachments([courseId]);
+    setPaidAttachment(attachment
+      ? { name: attachment.attachmentName, url: attachment.attachmentUrl }
+      : null);
+  };
 
   const checkEnrollmentStatus = async () => {
     if (!user?.id || !courseId) {
@@ -104,7 +118,7 @@ const CourseDetail = () => {
       console.log('Fetching course with ID:', courseId);
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
-        .select('*')
+        .select('id, title, description, image_url, price, original_price, duration, mode, age_range, category, total_lessons, highlights, learning_points')
         .eq('id', courseId)
         .single();
 
@@ -252,11 +266,13 @@ const CourseDetail = () => {
                   isEnrolled={isEnrolled}
                   className="bg-white text-kiki-purple-600 hover:bg-white/90"
                 />
-                <ProgramAttachmentDownload
-                  attachmentUrl={course.attachment_url}
-                  attachmentName={course.attachment_name}
-                  className="bg-white text-kiki-purple-600 hover:bg-white/90 border-white"
-                />
+                {paidAttachment && (
+                  <ProgramAttachmentDownload
+                    attachmentUrl={paidAttachment.url}
+                    attachmentName={paidAttachment.name}
+                    className="bg-white text-kiki-purple-600 hover:bg-white/90 border-white"
+                  />
+                )}
               </div>
             </div>
 

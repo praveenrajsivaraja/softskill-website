@@ -7,7 +7,6 @@ import { Clock, BookOpen, Phone, MapPin, Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
-import ProgramAttachmentDownload from '@/components/ProgramAttachmentDownload';
 import EnrollButton from '@/components/EnrollButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -25,8 +24,6 @@ interface Program {
   age_range: string | null;
   category: string | null;
   total_lessons: number | null;
-  attachment_name: string | null;
-  attachment_url: string | null;
 }
 
 const Programs = () => {
@@ -46,7 +43,7 @@ const Programs = () => {
       // Get all active courses except MBTI course
       const { data: allCourses, error: coursesError } = await supabase
         .from('courses')
-        .select('*')
+        .select('id, title, description, image_url, price, original_price, duration, mode, age_range, category, total_lessons')
         .eq('status', 'active')
         .neq('course_type', COURSE_TYPE_CAREER_TEST)
         .order('created_at', { ascending: true });
@@ -210,11 +207,6 @@ const Programs = () => {
                     </CardContent>
 
                     <CardFooter className="p-4 pt-0 flex flex-col gap-2">
-                      <ProgramAttachmentDownload
-                        attachmentUrl={program.attachment_url}
-                        attachmentName={program.attachment_name}
-                        className="w-full border-kiki-purple-600 text-kiki-purple-600 hover:bg-kiki-purple-50"
-                      />
                       <Button
                         size="sm"
                         variant="outline"

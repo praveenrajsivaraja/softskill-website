@@ -35,7 +35,7 @@ const FeaturedPrograms = () => {
     try {
       const { data, error } = await supabase
         .from('courses')
-        .select('*')
+        .select('id, title, description, image_url, price, original_price, duration, mode, age_range, category, total_lessons')
         .eq('status', 'active')
         .neq('course_type', COURSE_TYPE_CAREER_TEST)
         .limit(3)

@@ -41,7 +41,7 @@ const CareerTest = () => {
       const [courseResult, sectionResult] = await Promise.all([
         supabase
           .from('courses')
-          .select('*')
+          .select('id, title, description, image_url, price, original_price, duration, highlights')
           .eq('course_type', COURSE_TYPE_CAREER_TEST)
           .eq('status', 'active')
           .order('created_at', { ascending: true }),
