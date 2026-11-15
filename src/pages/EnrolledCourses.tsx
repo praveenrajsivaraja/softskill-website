@@ -10,10 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Calendar, Clock, Eye, FileText, Download, Loader2, RefreshCw } from 'lucide-react';
+import { BookOpen, Calendar, Clock, Eye, FileText, Loader2, RefreshCw } from 'lucide-react';
 import ExploreButton from '@/components/ExploreButton';
-import ProgramAttachmentDownload from '@/components/ProgramAttachmentDownload';
-import { fetchPaidCourseAttachments, PaidCourseAttachment } from '@/lib/courseAttachment';
 
 interface Course {
   id: string;
@@ -57,7 +55,6 @@ const EnrolledCourses = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [paidAttachments, setPaidAttachments] = useState<Record<string, PaidCourseAttachment>>({});
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -185,10 +182,7 @@ const EnrolledCourses = () => {
       })) as Enrollment[];
 
       console.log('Enrollments fetched:', enrollmentsData);
-      const visibleEnrollments = enrollmentsData || [];
-      setEnrollments(visibleEnrollments);
-      const attachments = await fetchPaidCourseAttachments(visibleEnrollments.map((enrollment) => enrollment.course_id));
-      setPaidAttachments(Object.fromEntries(attachments.map((attachment) => [attachment.courseId, attachment])));
+      setEnrollments(enrollmentsData || []);
     } catch (error) {
       console.error('Error fetching enrollments:', error);
     }
@@ -381,19 +375,11 @@ const EnrolledCourses = () => {
                         )}
                       </div>
                       
-                      <div className="flex flex-col gap-2">
-                        {paidAttachments[enrollment.course.id] && (
-                          <ProgramAttachmentDownload
-                            attachmentUrl={paidAttachments[enrollment.course.id].attachmentUrl}
-                            attachmentName={paidAttachments[enrollment.course.id].attachmentName}
-                            className="w-full"
-                          />
-                        )}
-                        <ExploreButton 
-                          courseId={enrollment.course.id} 
-                          courseName={enrollment.course.title}
-                        />
-                      </div>
+                      <ExploreButton
+                        courseId={enrollment.course.id}
+                        courseName={enrollment.course.title}
+                        openMaterials
+                      />
                     </CardContent>
                   </Card>
                 ))}

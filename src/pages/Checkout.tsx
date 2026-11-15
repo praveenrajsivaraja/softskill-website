@@ -158,7 +158,12 @@ const Checkout = () => {
         : "You have been enrolled in your courses and can access them immediately.",
     });
 
-    navigate(includesCareerTest ? '/career-test' : '/enrolled-courses');
+    const purchasedPrograms = cartItems.filter((item) => !isCareerTestCourse(item.course));
+    if (purchasedPrograms.length === 1 && !includesCareerTest) {
+      navigate(`/course/${purchasedPrograms[0].course.id}#materials`);
+    } else {
+      navigate(includesCareerTest ? '/career-test' : '/enrolled-courses');
+    }
   };
 
   const handleFreeCheckout = async () => {

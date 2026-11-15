@@ -15,7 +15,14 @@ import { BookOpen, Plus, Edit, Trash2, Users, Settings } from 'lucide-react';
 import AdminSearchableTab from './AdminSearchableTab';
 import AdminSectionManagement from './AdminSectionManagement';
 import { COURSE_TYPE_CAREER_TEST, COURSE_TYPE_COURSE, linesToList, listToLines } from '@/lib/courseCatalog';
-import { fetchPaidCourseAttachments, isAttachmentTableMissing, isGoogleDriveAttachmentUrl } from '@/lib/courseAttachment';
+import { fetchPaidCourseAttachments } from '@/lib/courseAttachment';
+import {
+  createDocumentDraft,
+  documentsReadyToSave,
+  fetchCourseDocumentDrafts,
+  saveCourseMaterials,
+  type CourseDocumentDraft,
+} from '@/lib/courseDocuments';
 
 interface Course {
   id: string;
@@ -58,8 +65,6 @@ const emptyCourseForm = {
   course_type: COURSE_TYPE_COURSE,
   highlights: '',
   learning_points: '',
-  attachment_name: '',
-  attachment_url: '',
 };
 
 const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
@@ -68,6 +73,8 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [documentDrafts, setDocumentDrafts] = useState<CourseDocumentDraft[]>([createDocumentDraft()]);
+  const [documentsLoaded, setDocumentsLoaded] = useState(true);
   const { toast } = useToast();
 
   // Form state
@@ -137,13 +144,13 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.title.trim() || !formData.price) return;
+    if (!formData.title.trim() || !formData.price || (editingCourse && !documentsLoaded)) return;
 
-    const attachmentUrl = formData.attachment_url.trim();
-    if (attachmentUrl && !isGoogleDriveAttachmentUrl(attachmentUrl)) {
+    const preparedDocuments = documentsReadyToSave(documentDrafts);
+    if ('error' in preparedDocuments) {
       toast({
-        title: "Attachment link",
-        description: "Use a Google Drive or Google Docs share link, or leave the attachment blank.",
+        title: "Documents",
+        description: preparedDocuments.error,
         variant: "destructive",
       });
       return;
@@ -191,30 +198,7 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
         throw new Error('The course was saved without an id, so the attachment could not be stored.');
       }
 
-      if (attachmentUrl) {
-        const { error: attachmentError } = await supabase
-          .from('course_attachments')
-          .upsert({
-            course_id: courseId,
-            attachment_name: formData.attachment_name.trim() || null,
-            attachment_url: attachmentUrl,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'course_id' });
-
-        if (attachmentError) {
-          if (isAttachmentTableMissing(attachmentError)) {
-            throw new Error('Run the course attachment SQL in Supabase before saving a Google Drive link.');
-          }
-          throw attachmentError;
-        }
-      } else if (editingCourse) {
-        const { error: attachmentError } = await supabase
-          .from('course_attachments')
-          .delete()
-          .eq('course_id', courseId);
-
-        if (attachmentError && !isAttachmentTableMissing(attachmentError)) throw attachmentError;
-      }
+      await saveCourseMaterials(courseId, preparedDocuments.documents);
 
       toast({
         title: "Success",
@@ -226,7 +210,10 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
       fetchCourses();
     } catch (error) {
       console.error('Error saving course:', error);
-      const description = error instanceof Error && error.message.startsWith('Run the course attachment SQL')
+      const description = error instanceof Error && (
+        error.message.startsWith('Run the course attachment SQL')
+        || error.message.startsWith('Run the course document SQL')
+      )
         ? error.message
         : "Failed to save course.";
       toast({
@@ -265,6 +252,8 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
       course_type: catalog === 'career_test' ? COURSE_TYPE_CAREER_TEST : COURSE_TYPE_COURSE,
     });
     setEditingCourse(null);
+    setDocumentDrafts([createDocumentDraft()]);
+    setDocumentsLoaded(true);
   };
 
   const openEditDialog = (course: Course) => {
@@ -284,10 +273,22 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
       course_type: course.course_type || COURSE_TYPE_COURSE,
       highlights: listToLines(course.highlights),
       learning_points: listToLines(course.learning_points),
-      attachment_name: course.attachment_name || '',
-      attachment_url: course.attachment_url || '',
     });
+    setDocumentDrafts(course.attachment_url
+      ? [createDocumentDraft({
+        title: course.attachment_name || '',
+        driveUrl: course.attachment_url,
+        monthIndex: '1',
+      })]
+      : [createDocumentDraft()]);
+    setDocumentsLoaded(false);
     setIsDialogOpen(true);
+    void fetchCourseDocumentDrafts(course.id).then((savedDocuments) => {
+      if (savedDocuments && savedDocuments.length > 0) {
+        setDocumentDrafts(savedDocuments);
+      }
+      setDocumentsLoaded(true);
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -520,25 +521,94 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                               placeholder="https://example.com/image.jpg"
                             />
                           </div>
-                          <div className="col-span-2">
-                            <Label htmlFor="attachment_name">Attachment name</Label>
-                            <Input
-                              id="attachment_name"
-                              value={formData.attachment_name}
-                              onChange={(e) => setFormData({ ...formData, attachment_name: e.target.value })}
-                              placeholder="Syllabus"
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <Label htmlFor="attachment_url">Google Drive link</Label>
-                            <Input
-                              id="attachment_url"
-                              value={formData.attachment_url}
-                              onChange={(e) => setFormData({ ...formData, attachment_url: e.target.value })}
-                              placeholder="https://drive.google.com/file/d/FILE_ID/view"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Upload the file to Google Drive, share it so anyone with the link can view it, then paste that link here. Leave this blank when the program has no attachment.
+                          <div className="col-span-2 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Label>Monthly documents</Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setDocumentDrafts([
+                                  ...documentDrafts,
+                                  createDocumentDraft({ monthIndex: documentDrafts.at(-1)?.monthIndex || '1' }),
+                                ])}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add document
+                              </Button>
+                            </div>
+                            {documentDrafts.map((document, index) => (
+                              <div key={document.key} className="grid grid-cols-2 gap-2 rounded-lg border p-3">
+                                <div>
+                                  <Label htmlFor={`document-month-${document.key}`}>Month</Label>
+                                  <Input
+                                    id={`document-month-${document.key}`}
+                                    type="number"
+                                    min={1}
+                                    max={24}
+                                    value={document.monthIndex}
+                                    onChange={(event) => {
+                                      const nextDrafts = [...documentDrafts];
+                                      nextDrafts[index] = { ...document, monthIndex: event.target.value };
+                                      setDocumentDrafts(nextDrafts);
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`document-title-${document.key}`}>Title</Label>
+                                  <Input
+                                    id={`document-title-${document.key}`}
+                                    value={document.title}
+                                    onChange={(event) => {
+                                      const nextDrafts = [...documentDrafts];
+                                      nextDrafts[index] = { ...document, title: event.target.value };
+                                      setDocumentDrafts(nextDrafts);
+                                    }}
+                                    placeholder="Week notes"
+                                  />
+                                </div>
+                                <div className="col-span-2">
+                                  <Label htmlFor={`document-link-${document.key}`}>Google Drive link</Label>
+                                  <Input
+                                    id={`document-link-${document.key}`}
+                                    value={document.driveUrl}
+                                    onChange={(event) => {
+                                      const nextDrafts = [...documentDrafts];
+                                      nextDrafts[index] = { ...document, driveUrl: event.target.value };
+                                      setDocumentDrafts(nextDrafts);
+                                    }}
+                                    placeholder="https://drive.google.com/file/d/FILE_ID/view"
+                                  />
+                                </div>
+                                <div className="col-span-2">
+                                  <Label htmlFor={`document-preview-${document.key}`}>Preview image link</Label>
+                                  <Input
+                                    id={`document-preview-${document.key}`}
+                                    value={document.previewImageUrl}
+                                    onChange={(event) => {
+                                      const nextDrafts = [...documentDrafts];
+                                      nextDrafts[index] = { ...document, previewImageUrl: event.target.value };
+                                      setDocumentDrafts(nextDrafts);
+                                    }}
+                                    placeholder="Optional https image. A Drive preview is used when this is blank."
+                                  />
+                                </div>
+                                {documentDrafts.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-self-start"
+                                    onClick={() => setDocumentDrafts(documentDrafts.filter((draft) => draft.key !== document.key))}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Remove
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                            <p className="text-xs text-gray-500">
+                              Share each file so anyone with the link can view it. After purchase, the course page groups these by month. The preview image opens the document, and the student can download it.
                             </p>
                           </div>
                         </div>
@@ -546,7 +616,7 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                           <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                             Cancel
                           </Button>
-                          <Button onClick={handleSubmit}>
+                          <Button onClick={handleSubmit} disabled={editingCourse !== null && !documentsLoaded}>
                             {editingCourse ? 'Update' : 'Create'}
                           </Button>
                         </DialogFooter>

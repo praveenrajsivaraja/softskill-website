@@ -99,8 +99,7 @@ const EnrollButton: React.FC<EnrollButtonProps> = ({
         console.log('Navigating to MBTI test for Assessment course');
         navigate('/mbti-test');
       } else {
-        console.log('Navigating to enrolled courses for non-Assessment course');
-        navigate('/enrolled-courses');
+        navigate(`/course/${courseId}#materials`);
       }
       return;
     }

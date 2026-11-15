@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Clock, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,8 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import EnrollButton from '@/components/EnrollButton';
-import ProgramAttachmentDownload from '@/components/ProgramAttachmentDownload';
-import { fetchPaidCourseAttachments } from '@/lib/courseAttachment';
+import CourseMaterials from '@/components/CourseMaterials';
+import { fetchCourseMaterials, type CourseMaterial } from '@/lib/courseDocuments';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
 import CourseSections from '@/components/CourseSections';
 
@@ -36,11 +36,13 @@ const CourseDetail = () => {
   const [course, setCourse] = useState<Program | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
-  const [paidAttachment, setPaidAttachment] = useState<{ name: string | null; url: string } | null>(null);
+  const [materials, setMaterials] = useState<CourseMaterial[]>([]);
+  const [materialsLoading, setMaterialsLoading] = useState(false);
   const [enrollmentLoading, setEnrollmentLoading] = useState(true);
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (courseId) {
@@ -52,24 +54,42 @@ const CourseDetail = () => {
   useEffect(() => {
     if (isAuthenticated && user?.id && courseId) {
       checkEnrollmentStatus();
-      loadPaidAttachment();
     } else {
-      setPaidAttachment(null);
       setEnrollmentLoading(false);
     }
   }, [courseId, user, isAuthenticated]);
 
-  const loadPaidAttachment = async () => {
-    if (!courseId) {
-      setPaidAttachment(null);
+  useEffect(() => {
+    if (!isEnrolled || !courseId) {
+      setMaterials([]);
       return;
     }
 
-    const [attachment] = await fetchPaidCourseAttachments([courseId]);
-    setPaidAttachment(attachment
-      ? { name: attachment.attachmentName, url: attachment.attachmentUrl }
-      : null);
-  };
+    let isCurrent = true;
+    setMaterialsLoading(true);
+    fetchCourseMaterials(courseId)
+      .then((documents) => {
+        if (isCurrent) {
+          setMaterials(documents);
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setMaterialsLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [courseId, isEnrolled]);
+
+  useEffect(() => {
+    if (location.hash !== '#materials' || !isEnrolled) {
+      return;
+    }
+    document.getElementById('materials')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [location.hash, isEnrolled, materials]);
 
   const checkEnrollmentStatus = async () => {
     if (!user?.id || !courseId) {
@@ -266,13 +286,6 @@ const CourseDetail = () => {
                   isEnrolled={isEnrolled}
                   className="bg-white text-kiki-purple-600 hover:bg-white/90"
                 />
-                {paidAttachment && (
-                  <ProgramAttachmentDownload
-                    attachmentUrl={paidAttachment.url}
-                    attachmentName={paidAttachment.name}
-                    className="bg-white text-kiki-purple-600 hover:bg-white/90 border-white"
-                  />
-                )}
               </div>
             </div>
 
@@ -288,6 +301,17 @@ const CourseDetail = () => {
           </div>
         </div>
       </div>
+
+      {isEnrolled && (
+        materialsLoading ? (
+          <section id="materials" className="container mx-auto px-4 pt-8 scroll-mt-24">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Course materials</h2>
+            <div className="h-48 animate-pulse rounded-xl bg-white" />
+          </section>
+        ) : (
+          <CourseMaterials documents={materials} />
+        )
+      )}
 
       {/* Course Content - Full Width Layout */}
       <div className="container mx-auto px-4 py-8">

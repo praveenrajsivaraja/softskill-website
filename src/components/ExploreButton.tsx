@@ -7,14 +7,14 @@ import { BookOpen } from 'lucide-react';
 interface ExploreButtonProps {
   courseId: string;
   courseName?: string;
+  openMaterials?: boolean;
 }
 
-const ExploreButton = ({ courseId, courseName }: ExploreButtonProps) => {
+const ExploreButton = ({ courseId, openMaterials = false }: ExploreButtonProps) => {
   const navigate = useNavigate();
 
   const handleExplore = () => {
-    console.log('Navigating to course:', courseId);
-    navigate(`/course/${courseId}`);
+    navigate(openMaterials ? `/course/${courseId}#materials` : `/course/${courseId}`);
   };
 
   return (
