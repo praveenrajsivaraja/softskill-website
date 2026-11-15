@@ -9,13 +9,14 @@ import {
   groupDocumentsByMonth,
 } from '@/lib/courseAttachmentLink';
 import type { CourseMaterial } from '@/lib/courseDocuments';
-import CourseAssessment from '@/components/CourseAssessment';
+import ProgramAssessments from '@/components/ProgramAssessments';
 
 interface CourseMaterialsProps {
+  courseId: string;
   documents: CourseMaterial[];
 }
 
-const CourseMaterials = ({ documents }: CourseMaterialsProps) => {
+const CourseMaterials = ({ courseId, documents }: CourseMaterialsProps) => {
   const [openDocument, setOpenDocument] = useState<CourseMaterial | null>(null);
   const [failedPreviews, setFailedPreviews] = useState<Set<string>>(new Set());
   const monthGroups = groupDocumentsByMonth(documents);
@@ -27,7 +28,7 @@ const CourseMaterials = ({ documents }: CourseMaterialsProps) => {
       <section id="materials" className="container mx-auto px-4 pt-8 scroll-mt-24">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Course materials</h2>
         <p className="text-gray-600">Documents for this course will appear here, grouped by month.</p>
-        <CourseAssessment />
+        <ProgramAssessments courseId={courseId} />
       </section>
     );
   }
@@ -89,7 +90,7 @@ const CourseMaterials = ({ documents }: CourseMaterialsProps) => {
           </div>
         ))}
       </div>
-      <CourseAssessment />
+      <ProgramAssessments courseId={courseId} />
 
       <Dialog open={openDocument !== null} onOpenChange={(isOpen) => { if (!isOpen) setOpenDocument(null); }}>
         <DialogContent className="max-w-4xl">

@@ -256,6 +256,221 @@ export type Database = {
           },
         ]
       }
+      assessments: {
+        Row: {
+          allow_review: boolean
+          course_id: string
+          created_at: string
+          description: string | null
+          duration_minutes: number
+          id: string
+          instructions: string | null
+          is_active: boolean
+          is_published: boolean
+          passing_score: number
+          sequence: number
+          show_feedback: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          allow_review?: boolean
+          course_id: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          instructions?: string | null
+          is_active?: boolean
+          is_published?: boolean
+          passing_score?: number
+          sequence?: number
+          show_feedback?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          allow_review?: boolean
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          instructions?: string | null
+          is_active?: boolean
+          is_published?: boolean
+          passing_score?: number
+          sequence?: number
+          show_feedback?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_questions: {
+        Row: {
+          accepted_answers: string[] | null
+          assessment_id: string
+          created_at: string
+          guidance: string | null
+          id: string
+          kind: string
+          listening_script: string | null
+          marks: number
+          minimum_words: number | null
+          model_answer: string | null
+          passage: string | null
+          passage_title: string | null
+          picture_text: string | null
+          picture_url: string | null
+          prompt: string
+          required_phrases: Json | null
+          section_instructions: string | null
+          section_order: number
+          section_title: string
+          sort_order: number
+          word_bank: string[] | null
+        }
+        Insert: {
+          accepted_answers?: string[] | null
+          assessment_id: string
+          created_at?: string
+          guidance?: string | null
+          id?: string
+          kind: string
+          listening_script?: string | null
+          marks?: number
+          minimum_words?: number | null
+          model_answer?: string | null
+          passage?: string | null
+          passage_title?: string | null
+          picture_text?: string | null
+          picture_url?: string | null
+          prompt: string
+          required_phrases?: Json | null
+          section_instructions?: string | null
+          section_order?: number
+          section_title?: string
+          sort_order?: number
+          word_bank?: string[] | null
+        }
+        Update: {
+          accepted_answers?: string[] | null
+          assessment_id?: string
+          created_at?: string
+          guidance?: string | null
+          id?: string
+          kind?: string
+          listening_script?: string | null
+          marks?: number
+          minimum_words?: number | null
+          model_answer?: string | null
+          passage?: string | null
+          passage_title?: string | null
+          picture_text?: string | null
+          picture_url?: string | null
+          prompt?: string
+          required_phrases?: Json | null
+          section_instructions?: string | null
+          section_order?: number
+          section_title?: string
+          sort_order?: number
+          word_bank?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_questions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_options: {
+        Row: {
+          id: string
+          is_correct: boolean
+          label: string
+          question_id: string
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          is_correct?: boolean
+          label: string
+          question_id: string
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          is_correct?: boolean
+          label?: string
+          question_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_attempts: {
+        Row: {
+          answers: Json
+          assessment_id: string
+          id: string
+          passed: boolean
+          results: Json
+          score: number
+          submitted_at: string
+          total_marks: number
+          user_id: string
+        }
+        Insert: {
+          answers: Json
+          assessment_id: string
+          id?: string
+          passed: boolean
+          results: Json
+          score: number
+          submitted_at?: string
+          total_marks: number
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          assessment_id?: string
+          id?: string
+          passed?: boolean
+          results?: Json
+          score?: number
+          submitted_at?: string
+          total_marks?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_attempts_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_sections: {
         Row: {
           course_id: string
@@ -821,6 +1036,22 @@ export type Database = {
       validate_file_url: {
         Args: { url: string }
         Returns: boolean
+      }
+      replace_assessment_questions: {
+        Args: { target_assessment_id: string; questions: Json }
+        Returns: undefined
+      }
+      get_assessment_for_learner: {
+        Args: { target_assessment_id: string }
+        Returns: Json
+      }
+      check_assessment_answer: {
+        Args: { target_question_id: string; response: string }
+        Returns: boolean
+      }
+      submit_assessment_attempt: {
+        Args: { target_assessment_id: string; responses: Json }
+        Returns: Json
       }
     }
     Enums: {

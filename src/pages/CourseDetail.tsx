@@ -309,7 +309,7 @@ const CourseDetail = () => {
             <div className="h-48 animate-pulse rounded-xl bg-white" />
           </section>
         ) : (
-          <CourseMaterials documents={materials} />
+          <CourseMaterials courseId={course.id} documents={materials} />
         )
       )}
 
