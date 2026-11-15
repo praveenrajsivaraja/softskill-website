@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ClipboardCheck, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -270,6 +271,7 @@ const AssessmentManagement = () => {
               totalMarks,
               passed: totalMarks === 0 || Math.round((score / totalMarks) * 100) >= Number(settings.passingScore),
               submittedAt: new Date().toISOString(),
+              programProgress: null,
               results: [],
             };
           }}
@@ -293,14 +295,21 @@ const AssessmentManagement = () => {
           Run supabase/migrations/20261115210000_program_assessments.sql in the Supabase SQL editor before saving assessments.
         </p>
       )}
-      <div className="max-w-md">
-        <Label>Program</Label>
-        <Select value={courseId} onValueChange={setCourseId}>
-          <SelectTrigger><SelectValue placeholder="Choose a program" /></SelectTrigger>
-          <SelectContent>
-            {courses.map((course) => <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>)}
-          </SelectContent>
-        </Select>
+      <div className="flex max-w-xl flex-wrap items-end gap-3">
+        <div className="min-w-[16rem] flex-1">
+          <Label>Program</Label>
+          <Select value={courseId} onValueChange={setCourseId}>
+            <SelectTrigger><SelectValue placeholder="Choose a program" /></SelectTrigger>
+            <SelectContent>
+              {courses.map((course) => <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        {courseId && (
+          <Button asChild variant="outline">
+            <Link to={`/course/${courseId}#materials`}>View program</Link>
+          </Button>
+        )}
       </div>
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => { setEditingId(null); setSettings(emptySettings); setQuestions([createQuestionDraft()]); }}>

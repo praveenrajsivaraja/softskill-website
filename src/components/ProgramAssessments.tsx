@@ -80,6 +80,9 @@ const ProgramAssessments = ({ courseId }: ProgramAssessmentsProps) => {
     );
   }
 
+  const completedAssessments = assessments.filter((assessment) => bestScores[assessment.id]).length;
+  const programProgress = assessments.length === 0 ? 0 : Math.round((completedAssessments / assessments.length) * 100);
+
   return (
     <section id="assessment" className="container mx-auto px-4 pb-4 scroll-mt-24">
       <div className="mt-10">
@@ -87,6 +90,22 @@ const ProgramAssessments = ({ courseId }: ProgramAssessmentsProps) => {
         <p className="mt-1 text-gray-600">Finish a short challenge for this program and see what to practise next.</p>
       </div>
       {loading && <div className="mt-4 h-28 animate-pulse rounded-3xl bg-white" />}
+      {assessments.length > 0 && (
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="text-gray-600">Program progress</span>
+            <span className="font-medium text-gray-900">
+              {programProgress}% · {completedAssessments} of {assessments.length} completed
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-white">
+            <div
+              className="h-full rounded-full bg-kiki-purple-600"
+              style={{ width: `${programProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
       {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
       {!loading && assessments.length === 0 && (
         <p className="mt-4 text-gray-600">No assessment has been published for this program yet.</p>

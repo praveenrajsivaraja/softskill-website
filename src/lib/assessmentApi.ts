@@ -1,5 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import type { AssessmentQuestionPayload } from '@/lib/assessmentModel';
+import {
+  groupStudentProgress,
+  readAnswerMap,
+  readPhraseGroups,
+  readQuestionKind,
+  type StoredQuestion,
+  type StudentProgressView,
+} from '@/lib/studentProgress';
 
 export interface ProgramAssessment {
   id: string;
@@ -68,6 +77,7 @@ export interface AssessmentAttemptSummary {
   totalMarks: number;
   passed: boolean;
   submittedAt: string;
+  programProgress: number | null;
   results: Array<{
     questionId: string;
     prompt: string;
@@ -180,7 +190,7 @@ export const replaceAssessmentQuestions = async (
 ) => {
   const { error } = await supabase.rpc('replace_assessment_questions', {
     target_assessment_id: assessmentId,
-    questions,
+    questions: questions as unknown as Json,
   });
   if (error) {
     throw error;
@@ -238,6 +248,7 @@ export const submitLearnerAssessment = async (
     score: number;
     totalMarks: number;
     passed: boolean;
+    programProgress: number | null;
     results: AssessmentAttemptSummary['results'];
   };
   return {
@@ -246,15 +257,23 @@ export const submitLearnerAssessment = async (
     totalMarks: result.totalMarks,
     passed: result.passed,
     submittedAt: new Date().toISOString(),
+    programProgress: typeof result.programProgress === 'number' ? result.programProgress : null,
     results: result.results ?? [],
   };
 };
 
 export const fetchMyAssessmentAttempts = async (assessmentId: string): Promise<AssessmentAttemptSummary[]> => {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('assessment_attempts')
     .select('id, score, total_marks, passed, submitted_at, results')
     .eq('assessment_id', assessmentId)
+    .eq('user_id', userId)
     .order('submitted_at', { ascending: false });
 
   if (error) {
@@ -270,6 +289,112 @@ export const fetchMyAssessmentAttempts = async (assessmentId: string): Promise<A
     totalMarks: attempt.total_marks,
     passed: attempt.passed,
     submittedAt: attempt.submitted_at,
+    programProgress: null,
     results: Array.isArray(attempt.results) ? attempt.results as AssessmentAttemptSummary['results'] : [],
   }));
+};
+
+export interface AdminStudentProgress {
+  students: StudentProgressView[];
+  questionsByAssessmentId: Record<string, StoredQuestion[]>;
+}
+
+export const fetchAdminStudentProgress = async (): Promise<AdminStudentProgress> => {
+  const [enrollmentResult, assessmentResult, attemptResult, questionResult] = await Promise.all([
+    supabase.from('enrollments').select('student_id, course_id, status, progress'),
+    supabase.from('assessments').select('id, course_id, title, sequence, is_published, is_active'),
+    supabase.from('assessment_attempts').select('id, user_id, assessment_id, score, total_marks, passed, submitted_at, answers'),
+    supabase.from('assessment_questions').select('id, assessment_id, prompt, section_title, section_order, sort_order, kind, marks, minimum_words, accepted_answers, model_answer, required_phrases, guidance, assessment_options(id, label, is_correct, sort_order)'),
+  ]);
+
+  const firstError = enrollmentResult.error ?? assessmentResult.error ?? attemptResult.error ?? questionResult.error;
+  if (firstError) {
+    throw firstError;
+  }
+
+  const studentIds = [...new Set((enrollmentResult.data ?? []).map((row) => row.student_id).filter((id): id is string => Boolean(id)))];
+  const courseIds = [...new Set((enrollmentResult.data ?? []).map((row) => row.course_id).filter((id): id is string => Boolean(id)))];
+  const [profileResult, courseResult] = await Promise.all([
+    studentIds.length > 0
+      ? supabase.from('profiles').select('id, full_name, email, phone').in('id', studentIds)
+      : Promise.resolve({ data: [], error: null }),
+    courseIds.length > 0
+      ? supabase.from('courses').select('id, title').in('id', courseIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (profileResult.error) {
+    throw profileResult.error;
+  }
+  if (courseResult.error) {
+    throw courseResult.error;
+  }
+
+  const profiles = new Map((profileResult.data ?? []).map((profile) => [profile.id, profile]));
+  const courses = new Map((courseResult.data ?? []).map((course) => [course.id, course.title]));
+  const questionsByAssessmentId: Record<string, StoredQuestion[]> = {};
+
+  for (const row of questionResult.data ?? []) {
+    const kind = readQuestionKind(row.kind);
+    if (!kind) {
+      continue;
+    }
+    const options = [...(row.assessment_options ?? [])]
+      .sort((left, right) => left.sort_order - right.sort_order)
+      .map((option) => ({ id: option.id, label: option.label, isCorrect: option.is_correct }));
+    const question: StoredQuestion = {
+      id: row.id,
+      assessmentId: row.assessment_id,
+      prompt: row.prompt,
+      sectionTitle: row.section_title,
+      sortOrder: row.section_order * 1000 + row.sort_order,
+      kind,
+      marks: row.marks,
+      acceptedAnswers: row.accepted_answers ?? [],
+      modelAnswer: row.model_answer,
+      minimumWords: row.minimum_words,
+      requiredPhrases: readPhraseGroups(row.required_phrases),
+      guidance: row.guidance,
+      options,
+    };
+    questionsByAssessmentId[row.assessment_id] = [...(questionsByAssessmentId[row.assessment_id] ?? []), question];
+  }
+
+  const students = groupStudentProgress(
+    (enrollmentResult.data ?? []).flatMap((enrollment) => {
+      if (!enrollment.student_id || !enrollment.course_id) {
+        return [];
+      }
+      const profile = profiles.get(enrollment.student_id);
+      return [{
+        studentId: enrollment.student_id,
+        studentName: profile?.full_name?.trim() || profile?.email || 'Student',
+        email: profile?.email ?? 'Unknown email',
+        phone: profile?.phone ?? null,
+        courseId: enrollment.course_id,
+        courseTitle: courses.get(enrollment.course_id) ?? 'Program',
+        enrollmentStatus: enrollment.status ?? 'enrolled',
+        progress: enrollment.progress ?? 0,
+      }];
+    }),
+    (assessmentResult.data ?? []).map((assessment) => ({
+      id: assessment.id,
+      courseId: assessment.course_id,
+      title: assessment.title,
+      sequence: assessment.sequence,
+      isPublished: assessment.is_published,
+      isActive: assessment.is_active,
+    })),
+    (attemptResult.data ?? []).map((attempt) => ({
+      id: attempt.id,
+      userId: attempt.user_id,
+      assessmentId: attempt.assessment_id,
+      score: attempt.score,
+      totalMarks: attempt.total_marks,
+      passed: attempt.passed,
+      submittedAt: attempt.submitted_at,
+      answers: readAnswerMap(attempt.answers),
+    })),
+  );
+
+  return { students, questionsByAssessmentId };
 };

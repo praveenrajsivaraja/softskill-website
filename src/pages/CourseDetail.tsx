@@ -36,6 +36,7 @@ const CourseDetail = () => {
   const [course, setCourse] = useState<Program | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [canViewMaterials, setCanViewMaterials] = useState(false);
   const [materials, setMaterials] = useState<CourseMaterial[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [enrollmentLoading, setEnrollmentLoading] = useState(true);
@@ -55,12 +56,14 @@ const CourseDetail = () => {
     if (isAuthenticated && user?.id && courseId) {
       checkEnrollmentStatus();
     } else {
+      setIsEnrolled(false);
+      setCanViewMaterials(false);
       setEnrollmentLoading(false);
     }
   }, [courseId, user, isAuthenticated]);
 
   useEffect(() => {
-    if (!isEnrolled || !courseId) {
+    if (!canViewMaterials || !courseId) {
       setMaterials([]);
       return;
     }
@@ -82,17 +85,19 @@ const CourseDetail = () => {
     return () => {
       isCurrent = false;
     };
-  }, [courseId, isEnrolled]);
+  }, [courseId, canViewMaterials]);
 
   useEffect(() => {
-    if (location.hash !== '#materials' || !isEnrolled) {
+    if (location.hash !== '#materials' || !canViewMaterials) {
       return;
     }
     document.getElementById('materials')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [location.hash, isEnrolled, materials]);
+  }, [location.hash, canViewMaterials, materials]);
 
   const checkEnrollmentStatus = async () => {
     if (!user?.id || !courseId) {
+      setIsEnrolled(false);
+      setCanViewMaterials(false);
       setEnrollmentLoading(false);
       return;
     }
@@ -100,24 +105,38 @@ const CourseDetail = () => {
     try {
       console.log('Checking enrollment status for:', { userId: user.id, courseId });
       
-      const { data, error } = await supabase
-        .from('enrollments')
-        .select('id, status')
-        .eq('student_id', user.id)
-        .eq('course_id', courseId)
-        .eq('status', 'enrolled')
-        .maybeSingle();
+      const [enrollmentResult, profileResult] = await Promise.all([
+        supabase
+          .from('enrollments')
+          .select('id, status')
+          .eq('student_id', user.id)
+          .eq('course_id', courseId)
+          .in('status', ['enrolled', 'completed'])
+          .maybeSingle(),
+        supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle(),
+      ]);
 
-      if (error) {
-        console.error('Error checking enrollment:', error);
+      if (enrollmentResult.error) {
+        console.error(JSON.stringify({
+          event: 'course_enrollment_lookup_failed',
+          code: enrollmentResult.error.code,
+          message: enrollmentResult.error.message,
+        }));
         setIsEnrolled(false);
+        setCanViewMaterials(profileResult.data?.role === 'admin');
       } else {
-        console.log('Enrollment check result:', data);
-        setIsEnrolled(!!data);
+        const enrolled = Boolean(enrollmentResult.data);
+        setIsEnrolled(enrolled);
+        setCanViewMaterials(enrolled || profileResult.data?.role === 'admin');
       }
     } catch (error) {
       console.error('Error checking enrollment:', error);
       setIsEnrolled(false);
+      setCanViewMaterials(false);
     } finally {
       setEnrollmentLoading(false);
     }
@@ -302,7 +321,7 @@ const CourseDetail = () => {
         </div>
       </div>
 
-      {isEnrolled && (
+      {canViewMaterials && (
         materialsLoading ? (
           <section id="materials" className="container mx-auto px-4 pt-8 scroll-mt-24">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Course materials</h2>

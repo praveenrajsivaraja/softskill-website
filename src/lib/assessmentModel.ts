@@ -102,7 +102,12 @@ export const writtenAnswerMeetsRules = (
 };
 
 export const isAssessmentResponseCorrect = (
-  question: Pick<AssessmentQuestionPayload, 'kind' | 'acceptedAnswers' | 'modelAnswer' | 'minimumWords' | 'requiredPhrases' | 'options'> & {
+  question: {
+    kind: AssessmentQuestionKind;
+    acceptedAnswers: string[];
+    modelAnswer: string | null;
+    minimumWords: number | null;
+    requiredPhrases: string[][];
     options: Array<{ id?: string; isCorrect: boolean }>;
   },
   response: string,

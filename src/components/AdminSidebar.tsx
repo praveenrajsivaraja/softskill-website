@@ -6,6 +6,7 @@ import {
   Users, 
   BookOpen, 
   ClipboardCheck,
+  BarChart3,
   Brain,
   GraduationCap, 
   Bell,
@@ -48,6 +49,12 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
       label: 'Assessments',
       path: '/admin/assessments',
       description: 'Build program assessments'
+    },
+    {
+      icon: BarChart3,
+      label: 'Progress',
+      path: '/admin/progress',
+      description: 'Student scores and answers'
     },
     { 
       icon: Brain, 

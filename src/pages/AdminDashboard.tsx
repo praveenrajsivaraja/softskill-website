@@ -10,6 +10,7 @@ import AdminSidebar from '@/components/AdminSidebar';
 import UserManagement from '@/components/UserManagement';
 import CourseManagement from '@/components/CourseManagement';
 import AssessmentManagement from '@/components/AssessmentManagement';
+import StudentProgress from '@/components/StudentProgress';
 import CareerTestAdmin from '@/components/CareerTestAdmin';
 import EnrollmentManagement from '@/components/EnrollmentManagement';
 import HomepageContentManagement from '@/components/HomepageContentManagement';
@@ -156,6 +157,7 @@ const AdminDashboard = () => {
               <Route path="/users" element={<UserManagement />} />
               <Route path="/courses" element={<CourseManagement catalog="course" />} />
               <Route path="/assessments" element={<AssessmentManagement />} />
+              <Route path="/progress" element={<StudentProgress />} />
               <Route path="/career-test" element={<CareerTestAdmin />} />
               <Route path="/enrollments" element={<EnrollmentManagement />} />
               <Route path="/homepage" element={<HomepageContentManagement />} />

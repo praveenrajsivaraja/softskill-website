@@ -159,6 +159,9 @@ const AssessmentPlayer = ({
         <p className="mt-2 text-center text-gray-600">
           You scored {result.score} out of {result.totalMarks}. {result.passed ? 'You passed this assessment.' : 'Review the sections below and try again when you are ready.'}
         </p>
+        {typeof result.programProgress === 'number' && (
+          <p className="mt-3 text-center text-sm font-medium text-kiki-purple-700">Program progress is now {result.programProgress}%.</p>
+        )}
         {missed.length > 0 && (
           <ul className="mt-6 space-y-3">
             {missed.map((item) => (
