@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { Brain } from 'lucide-react';
 import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
+import { resolveCourseImageUrl } from '@/lib/courseImages';
 import type { Database } from '@/integrations/supabase/types';
 
 type CareerTestCourse = Database['public']['Tables']['courses']['Row'];
@@ -142,9 +143,9 @@ const CareerTest = () => {
               <div className="grid gap-6 max-w-5xl mx-auto md:grid-cols-2">
                 {courses.map((course) => (
                   <div key={course.id} className="bg-white rounded-2xl shadow-lg p-6 text-left">
-                    {course.image_url && (
+                    {resolveCourseImageUrl(course.title, course.image_url) && (
                       <img
-                        src={course.image_url}
+                        src={resolveCourseImageUrl(course.title, course.image_url) ?? undefined}
                         alt={course.title}
                         className="w-full h-48 object-cover rounded-lg mb-4"
                       />

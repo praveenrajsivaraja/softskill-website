@@ -4,17 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Trash2, Loader2, RefreshCw } from 'lucide-react';
 import AdminSearchableTab from '@/components/AdminSearchableTab';
 
+type UserRole = 'student' | 'instructor' | 'admin';
+
+const USER_ROLES: UserRole[] = ['student', 'instructor', 'admin'];
+
 interface User {
   id: string;
   email: string;
   full_name: string | null;
-  role: string;
+  role: UserRole | null;
   created_at: string;
   avatar_url: string | null;
 }
@@ -25,6 +29,7 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -85,9 +90,58 @@ const UserManagement = () => {
     const filtered = users.filter(user =>
       user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchTerm.toLowerCase())
+      user.role?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredUsers(filtered);
+  };
+
+  const updateUserRole = async (userId: string, nextRole: UserRole) => {
+    const selectedUser = users.find((user) => user.id === userId);
+    if (!selectedUser || selectedUser.role === nextRole) {
+      return;
+    }
+
+    setUpdatingRoleUserId(userId);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          role: nextRole,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Error updating user role:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update the user role.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setUsers((previousUsers) =>
+        previousUsers.map((user) =>
+          user.id === userId ? { ...user, role: nextRole } : user
+        )
+      );
+
+      toast({
+        title: "Role updated",
+        description: `${selectedUser.email} is now ${nextRole}.`,
+      });
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update the user role.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingRoleUserId(null);
+    }
   };
 
   const deleteUser = async (userId: string, userEmail: string) => {
@@ -195,9 +249,22 @@ const UserManagement = () => {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.full_name || 'N/A'}</TableCell>
                   <TableCell>
-                    <Badge variant={user.role === 'admin' ? 'destructive' : 'default'}>
-                      {user.role}
-                    </Badge>
+                    <Select
+                      value={user.role ?? 'student'}
+                      onValueChange={(value) => updateUserRole(user.id, value as UserRole)}
+                      disabled={updatingRoleUserId === user.id}
+                    >
+                      <SelectTrigger className="w-36" aria-label={`Role for ${user.email}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {USER_ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {role}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     {user.avatar_url ? (

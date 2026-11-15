@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import EnrollButton from '@/components/EnrollButton';
+import { resolveCourseImageUrl } from '@/lib/courseImages';
 import CourseSections from '@/components/CourseSections';
 
 interface Program {
@@ -250,9 +251,9 @@ const CourseDetail = () => {
             </div>
 
             <div className="relative">
-              {course.image_url && (
+              {resolveCourseImageUrl(course.title, course.image_url) && (
                 <img
-                  src={course.image_url}
+                  src={resolveCourseImageUrl(course.title, course.image_url) ?? undefined}
                   alt={course.title}
                   className="rounded-lg shadow-2xl w-full h-64 object-cover"
                 />

@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { ShoppingCart, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveCourseImageUrl } from '@/lib/courseImages';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import CouponInput from '@/components/CouponInput';
@@ -268,7 +269,7 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose, onCartUpdate }) => {
                   <CardContent className="p-4">
                     <div className="flex gap-4">
                       <img
-                        src={item.course?.image_url || '/placeholder.svg'}
+                        src={resolveCourseImageUrl(item.course?.title, item.course?.image_url) || '/placeholder.svg'}
                         alt={item.course?.title || 'Course'}
                         className="w-20 h-20 object-cover rounded-lg"
                       />

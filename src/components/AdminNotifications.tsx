@@ -19,6 +19,8 @@ import {
   CreditCard
 } from 'lucide-react';
 
+const PAID_ORDER_STATUSES = ['confirmed', 'completed'] as const;
+
 interface DashboardStats {
   totalUsers: number;
   totalCourses: number;
@@ -58,8 +60,8 @@ const AdminNotifications = () => {
       ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('courses').select('*', { count: 'exact', head: true }),
-        supabase.from('orders').select('*', { count: 'exact', head: true }),
-        supabase.from('orders').select('total_amount'),
+        supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', [...PAID_ORDER_STATUSES]),
+        supabase.from('orders').select('total_amount').in('status', [...PAID_ORDER_STATUSES]),
         supabase.from('enrollments').select('*', { count: 'exact', head: true }).eq('status', 'enrolled')
       ]);
 
@@ -124,7 +126,7 @@ const AdminNotifications = () => {
       value: stats.totalOrders.toLocaleString(),
       icon: ShoppingCart,
       color: 'bg-purple-500',
-      change: 'All time orders',
+      change: 'Paid orders',
       changeType: 'neutral'
     },
     {
@@ -132,7 +134,7 @@ const AdminNotifications = () => {
       value: formatCurrency(stats.totalRevenue),
       icon: DollarSign,
       color: 'bg-red-500',
-      change: 'Gross revenue',
+      change: 'Paid revenue',
       changeType: 'positive'
     }
   ];

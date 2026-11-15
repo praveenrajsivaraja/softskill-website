@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Clock, BookOpen } from 'lucide-react';
 import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
+import { resolveCourseImageUrl } from '@/lib/courseImages';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import EnrollButton from '@/components/EnrollButton';
@@ -72,7 +73,7 @@ const FeaturedPrograms = () => {
             <Card key={program.id} className="group overflow-hidden border-0 card-shadow hover:card-shadow-hover transition-all duration-300 hover-scale rounded-2xl">
               <div className="relative overflow-hidden">
                 <img
-                  src={program.image_url}
+                  src={resolveCourseImageUrl(program.title, program.image_url) ?? undefined}
                   alt={program.title}
                   className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
                 />

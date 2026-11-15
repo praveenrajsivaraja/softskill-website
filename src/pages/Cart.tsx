@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveCourseImageUrl } from '@/lib/courseImages';
 import { useToast } from '@/hooks/use-toast';
 import { ShoppingCart, Trash2, Loader2, ArrowRight } from 'lucide-react';
 import CouponInput from '@/components/CouponInput';
@@ -233,7 +234,7 @@ const Cart = () => {
                     <CardContent className="p-6">
                       <div className="flex gap-4">
                         <img
-                          src={item.course?.image_url || '/placeholder.svg'}
+                          src={resolveCourseImageUrl(item.course?.title, item.course?.image_url) || '/placeholder.svg'}
                           alt={item.course?.title || 'Course'}
                           className="w-24 h-24 object-cover rounded-lg"
                         />

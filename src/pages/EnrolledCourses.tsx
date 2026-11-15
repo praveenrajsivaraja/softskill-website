@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { isCareerTestCourse } from '@/lib/courseCatalog';
+import { resolveCourseImageUrl } from '@/lib/courseImages';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -325,7 +326,7 @@ const EnrolledCourses = () => {
                     <div className="relative h-48">
                       {enrollment.course.image_url ? (
                         <img
-                          src={enrollment.course.image_url}
+                          src={resolveCourseImageUrl(enrollment.course.title, enrollment.course.image_url) ?? undefined}
                           alt={enrollment.course.title}
                           className="w-full h-full object-cover"
                         />

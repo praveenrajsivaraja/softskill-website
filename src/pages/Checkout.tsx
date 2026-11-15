@@ -11,6 +11,22 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ShoppingCart, CreditCard, ArrowLeft, Loader2, Tag, AlertTriangle } from 'lucide-react';
 import { loadRazorpayScript, createRazorpayOrder, initializeRazorpay } from '@/utils/razorpay';
 import { isCareerTestCourse } from '@/lib/courseCatalog';
+import { resolveCourseImageUrl } from '@/lib/courseImages';
+
+async function markOrderUnpaid(orderId: string, status: 'cancelled' | 'failed') {
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', orderId)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('Error updating unpaid order status:', error);
+  }
+}
 
 interface CartItem {
   id: string;
@@ -170,6 +186,8 @@ const Checkout = () => {
     setInitializingPayment(true);
     setProcessingPayment(true);
     setPaymentError(null);
+    let createdOrderId: string | null = null;
+    let paymentSucceeded = false;
 
     try {
       console.log('Starting Razorpay payment process...');
@@ -200,6 +218,7 @@ const Checkout = () => {
       }
 
       console.log('Order created:', order);
+      createdOrderId = order.id;
 
       // Create order items
       const orderItems = cartItems.map(item => ({
@@ -254,6 +273,7 @@ const Checkout = () => {
 
             // Handle verification success
             if (verificationResult && verificationResult.success) {
+              paymentSucceeded = true;
               console.log('Payment verified successfully!');
 
               // Create enrollments automatically
@@ -293,6 +313,7 @@ const Checkout = () => {
 
             // Handle verification failure
             console.error('Payment verification failed or returned error');
+            await markOrderUnpaid(order.id, 'failed');
             
             // Show specific error message for failed verification
             const errorMsg = verificationResult?.error || verificationError?.message || 'Payment verification failed';
@@ -309,6 +330,9 @@ const Checkout = () => {
 
           } catch (error) {
             console.error('Error in payment handler:', error);
+            if (!paymentSucceeded) {
+              await markOrderUnpaid(order.id, 'failed');
+            }
             setProcessingPayment(false);
             setPaymentError(`Payment processing error. Payment ID: ${response.razorpay_payment_id}. If money was debited, please contact support immediately with this payment ID.`);
             toast({
@@ -327,6 +351,9 @@ const Checkout = () => {
         },
         modal: {
           ondismiss: () => {
+            if (createdOrderId && !paymentSucceeded) {
+              void markOrderUnpaid(createdOrderId, 'cancelled');
+            }
             setProcessingPayment(false);
             setInitializingPayment(false);
             toast({
@@ -343,6 +370,9 @@ const Checkout = () => {
 
     } catch (error) {
       console.error('Error initializing Razorpay payment:', error);
+      if (createdOrderId && !paymentSucceeded) {
+        await markOrderUnpaid(createdOrderId, 'failed');
+      }
       setPaymentError(`Failed to initialize payment: ${error.message}`);
       toast({
         title: "Payment Error",
@@ -468,9 +498,9 @@ const Checkout = () => {
                   {cartItems.map((item) => (
                     <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
                       <div className="w-16 h-16 bg-gradient-to-br from-kiki-purple-100 to-kiki-blue-100 rounded-lg flex items-center justify-center">
-                        {item.course.image_url ? (
+                        {resolveCourseImageUrl(item.course.title, item.course.image_url) ? (
                           <img 
-                            src={item.course.image_url} 
+                            src={resolveCourseImageUrl(item.course.title, item.course.image_url) ?? undefined} 
                             alt={item.course.title}
                             className="w-full h-full object-cover rounded-lg"
                           />

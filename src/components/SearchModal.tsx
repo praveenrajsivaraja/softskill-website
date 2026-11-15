@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Search, Clock, BookOpen, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveCourseImageUrl } from '@/lib/courseImages';
 import type { Database } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -239,9 +240,9 @@ const CourseSearchCard: React.FC<CourseSearchCardProps> = ({ course, onOpenCours
   return (
     <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
       <div className="flex gap-4">
-        {course.image_url && (
+        {resolveCourseImageUrl(course.title, course.image_url) && (
           <img
-            src={course.image_url}
+            src={resolveCourseImageUrl(course.title, course.image_url) ?? undefined}
             alt={course.title}
             className="h-20 w-28 rounded-md object-cover shrink-0"
           />
