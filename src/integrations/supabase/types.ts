@@ -939,6 +939,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          is_active: boolean
           mbti_quiz_completed: boolean | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"] | null
@@ -951,6 +952,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
+          is_active?: boolean
           mbti_quiz_completed?: boolean | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
@@ -963,6 +965,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          is_active?: boolean
           mbti_quiz_completed?: boolean | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null

@@ -88,7 +88,9 @@ const Login = () => {
     const { error } = await login(loginEmail, loginPassword);
     
     if (error) {
-      setError('Invalid credentials. Please check your email and password.');
+      setError(error.message?.includes('deactivated')
+        ? error.message
+        : 'Invalid credentials. Please check your email and password.');
     }
     
     setIsSubmitting(false);

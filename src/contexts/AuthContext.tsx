@@ -52,6 +52,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        const signedInUserId = session.user.id;
+        window.setTimeout(async () => {
+          if (await accountIsActive(signedInUserId)) {
+            return;
+          }
+          await supabase.auth.signOut();
+          toast({
+            title: 'Account deactivated',
+            description: 'This account is deactivated. Contact an administrator.',
+            variant: 'destructive',
+          });
+        }, 0);
+      }
+
       setUser(session?.user ?? null);
       setLoading(false);
 
@@ -79,6 +94,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
+  const accountIsActive = async (userId: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_active')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error(JSON.stringify({
+        event: 'account_active_lookup_failed',
+        code: error.code,
+        message: error.message,
+      }));
+      return true;
+    }
+
+    return data?.is_active !== false;
+  };
+
+  const rejectInactiveAccount = async (userId: string): Promise<boolean> => {
+    const isActive = await accountIsActive(userId);
+    if (isActive) {
+      return true;
+    }
+    await supabase.auth.signOut();
+    return false;
+  };
+
   const login = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -87,8 +130,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('Login error:', error);
+        console.error(JSON.stringify({
+          event: 'login_failed',
+          message: error.message,
+        }));
         return { error };
+      }
+
+      if (data.user && !(await rejectInactiveAccount(data.user.id))) {
+        return { error: { message: 'This account is deactivated. Contact an administrator.' } };
       }
 
       toast({
@@ -98,7 +148,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { error: null };
     } catch (error) {
-      console.error('Login error:', error);
+      console.error(JSON.stringify({
+        event: 'login_failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }));
       return { error };
     }
   };

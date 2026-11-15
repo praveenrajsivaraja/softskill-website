@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ interface User {
   email: string;
   full_name: string | null;
   role: UserRole | null;
+  is_active: boolean;
   created_at: string;
   avatar_url: string | null;
 }
@@ -30,7 +32,9 @@ const UserManagement = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
+  const [updatingStatusUserId, setUpdatingStatusUserId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user: signedInUser } = useAuth();
 
   useEffect(() => {
     fetchUsers();
@@ -144,6 +148,66 @@ const UserManagement = () => {
     }
   };
 
+  const updateAccountStatus = async (userId: string, isActive: boolean) => {
+    if (signedInUser?.id === userId && !isActive) {
+      toast({
+        title: 'Account status',
+        description: 'You cannot deactivate the account you are signed in with.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUpdatingStatusUserId(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_active: isActive,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error(JSON.stringify({
+          event: 'account_status_update_failed',
+          code: error.code,
+          message: error.message,
+        }));
+        toast({
+          title: 'Account status',
+          description: error.message.includes('is_active')
+            ? 'Run the account status SQL in Supabase before activating or deactivating users.'
+            : 'Could not update this account.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setUsers((previousUsers) =>
+        previousUsers.map((user) => user.id === userId ? { ...user, is_active: isActive } : user)
+      );
+      toast({
+        title: isActive ? 'Account activated' : 'Account deactivated',
+        description: isActive
+          ? 'This user can sign in again.'
+          : 'This user can no longer sign in.',
+      });
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: 'account_status_update_failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }));
+      toast({
+        title: 'Account status',
+        description: 'Could not update this account.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingStatusUserId(null);
+    }
+  };
+
   const deleteUser = async (userId: string, userEmail: string) => {
     setDeletingUserId(userId);
     
@@ -238,6 +302,7 @@ const UserManagement = () => {
                 <TableHead>Email</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Avatar</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead>Actions</TableHead>
@@ -265,6 +330,19 @@ const UserManagement = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={updatingStatusUserId === user.id || signedInUser?.id === user.id}
+                      onClick={() => void updateAccountStatus(user.id, user.is_active === false)}
+                    >
+                      {updatingStatusUserId === user.id
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : user.is_active === false ? 'Activate' : 'Deactivate'}
+                    </Button>
                   </TableCell>
                   <TableCell>
                     {user.avatar_url ? (
@@ -324,7 +402,7 @@ const UserManagement = () => {
               ))}
               {filteredUsers.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                     No users found. {users.length === 0 && 'Try refreshing to load users.'}
                   </TableCell>
                 </TableRow>

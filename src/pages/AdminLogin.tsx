@@ -32,7 +32,9 @@ const AdminLogin = () => {
     const { error } = await login(email, password);
     
     if (error) {
-      setError('Invalid admin credentials. Please check your email and password.');
+      setError(error.message?.includes('deactivated')
+        ? error.message
+        : 'Invalid admin credentials. Please check your email and password.');
     } else {
       navigate('/admin');
     }
