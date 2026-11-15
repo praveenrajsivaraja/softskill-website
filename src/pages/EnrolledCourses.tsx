@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BookOpen, Calendar, Clock, Eye, FileText, Download, Loader2, RefreshCw } from 'lucide-react';
 import ExploreButton from '@/components/ExploreButton';
+import ProgramAttachmentDownload from '@/components/ProgramAttachmentDownload';
 
 interface Course {
   id: string;
@@ -22,6 +23,8 @@ interface Course {
   duration: string | null;
   category: string | null;
   course_type?: string | null;
+  attachment_name?: string | null;
+  attachment_url?: string | null;
 }
 
 interface Enrollment {
@@ -375,10 +378,17 @@ const EnrolledCourses = () => {
                         )}
                       </div>
                       
-                      <ExploreButton 
-                        courseId={enrollment.course.id} 
-                        courseName={enrollment.course.title}
-                      />
+                      <div className="flex flex-col gap-2">
+                        <ProgramAttachmentDownload
+                          attachmentUrl={enrollment.course.attachment_url}
+                          attachmentName={enrollment.course.attachment_name}
+                          className="w-full"
+                        />
+                        <ExploreButton 
+                          courseId={enrollment.course.id} 
+                          courseName={enrollment.course.title}
+                        />
+                      </div>
                     </CardContent>
                   </Card>
                 ))}

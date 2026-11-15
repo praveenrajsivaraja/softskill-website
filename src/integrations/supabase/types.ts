@@ -227,6 +227,8 @@ export type Database = {
       courses: {
         Row: {
           age_range: string | null
+          attachment_name: string | null
+          attachment_url: string | null
           category: string | null
           course_type: string
           created_at: string | null
@@ -247,6 +249,8 @@ export type Database = {
         }
         Insert: {
           age_range?: string | null
+          attachment_name?: string | null
+          attachment_url?: string | null
           category?: string | null
           course_type?: string
           created_at?: string | null
@@ -267,6 +271,8 @@ export type Database = {
         }
         Update: {
           age_range?: string | null
+          attachment_name?: string | null
+          attachment_url?: string | null
           category?: string | null
           course_type?: string
           created_at?: string | null

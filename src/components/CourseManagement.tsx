@@ -15,6 +15,7 @@ import { BookOpen, Plus, Edit, Trash2, Users, Settings } from 'lucide-react';
 import AdminSearchableTab from './AdminSearchableTab';
 import AdminSectionManagement from './AdminSectionManagement';
 import { COURSE_TYPE_CAREER_TEST, COURSE_TYPE_COURSE, linesToList, listToLines } from '@/lib/courseCatalog';
+import { isGoogleDriveAttachmentUrl } from '@/lib/courseAttachment';
 
 interface Course {
   id: string;
@@ -32,6 +33,8 @@ interface Course {
   course_type: string;
   highlights: string[] | null;
   learning_points: string[] | null;
+  attachment_name: string | null;
+  attachment_url: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -55,6 +58,8 @@ const emptyCourseForm = {
   course_type: COURSE_TYPE_COURSE,
   highlights: '',
   learning_points: '',
+  attachment_name: '',
+  attachment_url: '',
 };
 
 const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
@@ -125,6 +130,16 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
   const handleSubmit = async () => {
     if (!formData.title.trim() || !formData.price) return;
 
+    const attachmentUrl = formData.attachment_url.trim();
+    if (attachmentUrl && !isGoogleDriveAttachmentUrl(attachmentUrl)) {
+      toast({
+        title: "Attachment link",
+        description: "Use a Google Drive or Google Docs share link, or leave the attachment blank.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const courseData = {
         title: formData.title,
@@ -141,6 +156,8 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
         course_type: catalog === 'career_test' ? COURSE_TYPE_CAREER_TEST : formData.course_type,
         highlights: linesToList(formData.highlights),
         learning_points: linesToList(formData.learning_points),
+        attachment_name: formData.attachment_name.trim() || null,
+        attachment_url: attachmentUrl || null,
         updated_at: new Date().toISOString()
       };
 
@@ -221,6 +238,8 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
       course_type: course.course_type || COURSE_TYPE_COURSE,
       highlights: listToLines(course.highlights),
       learning_points: listToLines(course.learning_points),
+      attachment_name: course.attachment_name || '',
+      attachment_url: course.attachment_url || '',
     });
     setIsDialogOpen(true);
   };
@@ -313,7 +332,7 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                             Details are saved to the database and shown on the site.
                           </DialogDescription>
                         </DialogHeader>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
                           <div className="col-span-2">
                             <Label htmlFor="title">Title</Label>
                             <Input
@@ -454,6 +473,27 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                               onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                               placeholder="https://example.com/image.jpg"
                             />
+                          </div>
+                          <div className="col-span-2">
+                            <Label htmlFor="attachment_name">Attachment name</Label>
+                            <Input
+                              id="attachment_name"
+                              value={formData.attachment_name}
+                              onChange={(e) => setFormData({ ...formData, attachment_name: e.target.value })}
+                              placeholder="Syllabus"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <Label htmlFor="attachment_url">Google Drive link</Label>
+                            <Input
+                              id="attachment_url"
+                              value={formData.attachment_url}
+                              onChange={(e) => setFormData({ ...formData, attachment_url: e.target.value })}
+                              placeholder="https://drive.google.com/file/d/FILE_ID/view"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Upload the file to Google Drive, share it so anyone with the link can view it, then paste that link here. Leave this blank when the program has no attachment.
+                            </p>
                           </div>
                         </div>
                         <DialogFooter>

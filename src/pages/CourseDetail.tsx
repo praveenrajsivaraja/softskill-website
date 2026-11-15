@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import EnrollButton from '@/components/EnrollButton';
+import ProgramAttachmentDownload from '@/components/ProgramAttachmentDownload';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
 import CourseSections from '@/components/CourseSections';
 
@@ -27,6 +28,8 @@ interface Program {
   total_lessons: number | null;
   highlights: string[] | null;
   learning_points: string[] | null;
+  attachment_name: string | null;
+  attachment_url: string | null;
 }
 
 const CourseDetail = () => {
@@ -243,11 +246,18 @@ const CourseDetail = () => {
                 )}
               </div>
 
-              <EnrollButton 
-                courseId={course.id}
-                isEnrolled={isEnrolled}
-                className="bg-white text-kiki-purple-600 hover:bg-white/90"
-              />
+              <div className="flex flex-wrap items-center gap-3">
+                <EnrollButton 
+                  courseId={course.id}
+                  isEnrolled={isEnrolled}
+                  className="bg-white text-kiki-purple-600 hover:bg-white/90"
+                />
+                <ProgramAttachmentDownload
+                  attachmentUrl={course.attachment_url}
+                  attachmentName={course.attachment_name}
+                  className="bg-white text-kiki-purple-600 hover:bg-white/90 border-white"
+                />
+              </div>
             </div>
 
             <div className="relative">
