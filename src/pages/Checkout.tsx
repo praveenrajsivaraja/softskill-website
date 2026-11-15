@@ -130,6 +130,147 @@ const Checkout = () => {
     }
   };
 
+  const isFreeOrder = (checkoutData?.total ?? 0) <= 0;
+
+  const finishCheckout = async () => {
+    if (!user) return;
+
+    for (const item of cartItems) {
+      await createEnrollment(item.course.id);
+    }
+
+    const { error: cartError } = await supabase
+      .from('cart_items')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (cartError) {
+      console.error('Error clearing cart after checkout:', cartError);
+    }
+
+    sessionStorage.removeItem('checkoutData');
+
+    const includesCareerTest = cartItems.some((item) => isCareerTestCourse(item.course));
+    toast({
+      title: isFreeOrder ? "You're enrolled" : "Payment Successful!",
+      description: includesCareerTest
+        ? "The career test is now available in your account."
+        : "You have been enrolled in your courses and can access them immediately.",
+    });
+
+    navigate(includesCareerTest ? '/career-test' : '/enrolled-courses');
+  };
+
+  const handleFreeCheckout = async () => {
+    if (!user || cartItems.length === 0 || !checkoutData) return;
+
+    setProcessingPayment(true);
+    setPaymentError(null);
+    let createdOrderId: string | null = null;
+
+    try {
+      const courseIds = cartItems.map((item) => item.course.id);
+      const { data: courses, error: coursesError } = await supabase
+        .from('courses')
+        .select('id, price')
+        .in('id', courseIds);
+
+      if (coursesError) {
+        throw coursesError;
+      }
+
+      const subtotal = (courses ?? []).reduce((sum, course) => sum + Number(course.price), 0);
+      let discount = 0;
+
+      if (checkoutData.couponCode) {
+        const { data: coupon, error: couponError } = await supabase
+          .from('coupons')
+          .select('discount_amount, discount_type, course_restrictions, is_active, valid_until, usage_limit, used_count')
+          .ilike('code', checkoutData.couponCode)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (couponError) {
+          throw couponError;
+        }
+
+        const couponApplies = coupon
+          && (!coupon.valid_until || new Date(coupon.valid_until) >= new Date())
+          && (!coupon.usage_limit || coupon.used_count < coupon.usage_limit)
+          && (!coupon.course_restrictions?.length || courseIds.some((courseId) => coupon.course_restrictions?.includes(courseId)));
+
+        if (couponApplies && coupon) {
+          discount = coupon.discount_type === 'percentage'
+            ? Math.min((subtotal * Number(coupon.discount_amount)) / 100, subtotal)
+            : Math.min(Number(coupon.discount_amount), subtotal);
+        }
+      }
+
+      if (Math.max(0, subtotal - discount) > 0) {
+        throw new Error('This order still has an amount to pay.');
+      }
+
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          total_amount: 0,
+          status: 'confirmed',
+          payment_method: 'Free',
+        })
+        .select()
+        .single();
+
+      if (orderError) {
+        throw orderError;
+      }
+
+      createdOrderId = order.id;
+
+      const { error: orderItemsError } = await supabase
+        .from('order_items')
+        .insert(cartItems.map((item) => ({
+          order_id: order.id,
+          course_id: item.course.id,
+          price: item.course.price,
+        })));
+
+      if (orderItemsError) {
+        throw orderItemsError;
+      }
+
+      await finishCheckout();
+    } catch (error) {
+      console.error('Error completing free checkout:', error);
+      if (createdOrderId) {
+        const { error: failedOrderError } = await supabase
+          .from('orders')
+          .update({
+            status: 'failed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', createdOrderId);
+
+        if (failedOrderError) {
+          console.error('Error marking free order as failed:', failedOrderError);
+        }
+      }
+      const message = error instanceof Error
+        ? error.message
+        : (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+          ? error.message
+          : "Could not add this course to your account.");
+      setPaymentError(message);
+      toast({
+        title: "Could not complete enrollment",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
   const createEnrollment = async (courseId: string) => {
     if (!user?.id) return;
 
@@ -182,6 +323,11 @@ const Checkout = () => {
 
   const handleRazorpayPayment = async () => {
     if (!user || cartItems.length === 0 || !checkoutData) return;
+
+    if (isFreeOrder) {
+      await handleFreeCheckout();
+      return;
+    }
 
     setInitializingPayment(true);
     setProcessingPayment(true);
@@ -275,38 +421,7 @@ const Checkout = () => {
             if (verificationResult && verificationResult.success) {
               paymentSucceeded = true;
               console.log('Payment verified successfully!');
-
-              // Create enrollments automatically
-              for (const item of cartItems) {
-                try {
-                  await createEnrollment(item.course.id);
-                } catch (enrollmentError) {
-                  console.error(`Error creating enrollment for course ${item.course.id}:`, enrollmentError);
-                }
-              }
-
-              // Clear cart
-              await supabase
-                .from('cart_items')
-                .delete()
-                .eq('user_id', user.id);
-
-              // Clear checkout data from sessionStorage
-              sessionStorage.removeItem('checkoutData');
-
-              toast({
-                title: "Payment Successful!",
-                description: "You have been enrolled in your courses and can access them immediately.",
-              });
-
-              // Navigate based on cart contents
-              const hasCareerTest = cartItems.some(item => isCareerTestCourse(item.course));
-              if (hasCareerTest) {
-                navigate('/career-test');
-              } else {
-                navigate('/enrolled-courses');
-              }
-              
+              await finishCheckout();
               setProcessingPayment(false);
               return;
             }
@@ -560,7 +675,9 @@ const Checkout = () => {
                         </span>
                       </div>
                       <p className="text-sm text-green-700 mt-1">
-                        You'll get access to this career test after payment.
+                        {isFreeOrder
+                          ? "You'll get access to this career test as soon as you confirm."
+                          : "You'll get access to this career test after payment."}
                       </p>
                     </div>
                   )}
@@ -573,20 +690,32 @@ const Checkout = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" />
-                  Secure Payment with Razorpay
+                  {isFreeOrder ? "Free access" : "Secure Payment with Razorpay"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">Razorpay Secure Payment:</h4>
+                    <h4 className="font-medium text-blue-900 mb-2">
+                      {isFreeOrder ? "No payment is due:" : "Razorpay Secure Payment:"}
+                    </h4>
                     <div className="text-sm text-blue-800 space-y-1">
-                      <p>• Secure payment gateway with instant processing</p>
-                      <p>• Supports Credit/Debit Cards, UPI, Net Banking & Wallets</p>
-                      <p>• Amount: <strong>₹{checkoutData?.total || 0}</strong></p>
-                      <p>• Automatic enrollment upon successful payment</p>
-                      {hasCareerTest && (
-                        <p>• Career test access is granted after payment</p>
+                      {isFreeOrder ? (
+                        <>
+                          <p>• The coupon covers the full course price</p>
+                          <p>• Amount: <strong>₹0</strong></p>
+                          <p>• The course is added to your account when you confirm</p>
+                        </>
+                      ) : (
+                        <>
+                          <p>• Secure payment gateway with instant processing</p>
+                          <p>• Supports Credit/Debit Cards, UPI, Net Banking & Wallets</p>
+                          <p>• Amount: <strong>₹{checkoutData?.total || 0}</strong></p>
+                          <p>• Automatic enrollment upon successful payment</p>
+                          {hasCareerTest && (
+                            <p>• Career test access is granted after payment</p>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -612,7 +741,7 @@ const Checkout = () => {
                   )}
 
                   <Button 
-                    onClick={handleRazorpayPayment}
+                    onClick={isFreeOrder ? handleFreeCheckout : handleRazorpayPayment}
                     className="w-full" 
                     disabled={processingPayment}
                     size="lg"
@@ -627,8 +756,10 @@ const Checkout = () => {
                     ) : processingPayment ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Processing Payment...
+                        {isFreeOrder ? "Adding to your account..." : "Processing Payment..."}
                       </>
+                    ) : isFreeOrder ? (
+                      "Get free access"
                     ) : (
                       <>
                         <CreditCard className="h-4 w-4 mr-2" />
@@ -637,9 +768,11 @@ const Checkout = () => {
                     )}
                   </Button>
 
-                  <div className="text-xs text-gray-500 text-center">
-                    Powered by Razorpay • Your payment information is secure and encrypted
-                  </div>
+                  {!isFreeOrder && (
+                    <div className="text-xs text-gray-500 text-center">
+                      Powered by Razorpay • Your payment information is secure and encrypted
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

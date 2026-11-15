@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Menu, X, ShoppingCart, User, Search, LogOut, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +47,11 @@ const Header = () => {
     return 'User';
   };
 
+  const navigationLinkClass = ({ isActive }: { isActive: boolean }) =>
+    isActive
+      ? 'text-kiki-purple-700 font-semibold border-b-2 border-kiki-purple-600 pb-1'
+      : 'text-gray-700 hover:text-kiki-purple-600 font-medium transition-colors';
+
   return (
     <>
       <header className="bg-white shadow-sm sticky top-0 z-40">
@@ -64,27 +69,25 @@ const Header = () => {
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center space-x-8">
-              <Link to="/" className="text-gray-700 hover:text-kiki-purple-600 font-medium transition-colors">
+              <NavLink to="/" end className={navigationLinkClass}>
                 Home
-              </Link>
-              <Link to="/programs" className="text-gray-700 hover:text-kiki-purple-600 font-medium transition-colors">
+              </NavLink>
+              <NavLink to="/programs" className={navigationLinkClass}>
                 Programs
-              </Link>
-              <Link to="/about" className="text-gray-700 hover:text-kiki-purple-600 font-medium transition-colors">
-                About
-              </Link>
-              
-              {/* Show Career Test and My Courses in main navbar after login */}
+              </NavLink>
               {isAuthenticated && (
                 <>
-                  <Link to="/career-test" className="text-gray-700 hover:text-kiki-purple-600 font-medium transition-colors">
+                  <NavLink to="/career-test" className={navigationLinkClass}>
                     Career Test
-                  </Link>
-                  <Link to="/enrolled-courses" className="text-gray-700 hover:text-kiki-purple-600 font-medium transition-colors">
+                  </NavLink>
+                  <NavLink to="/enrolled-courses" className={navigationLinkClass}>
                     My Courses
-                  </Link>
+                  </NavLink>
                 </>
               )}
+              <NavLink to="/about" className={navigationLinkClass}>
+                About
+              </NavLink>
             </nav>
 
             {/* Desktop Actions */}

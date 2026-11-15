@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { Brain } from 'lucide-react';
+import { Brain, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
 import type { Database } from '@/integrations/supabase/types';
@@ -20,6 +21,7 @@ const CareerTest = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [courses, setCourses] = useState<CareerTestCourse[]>([]);
+  const [careerTestNameQuery, setCareerTestNameQuery] = useState('');
   const [sections, setSections] = useState<PageSection[]>([]);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +113,10 @@ const CareerTest = () => {
   const features = sections.filter((section) => section.section_key === 'feature');
   const benefits = sections.filter((section) => section.section_key === 'benefit');
   const callToAction = sections.find((section) => section.section_key === 'cta');
+  const normalizedCareerTestName = careerTestNameQuery.trim().toLowerCase();
+  const visibleCareerTests = normalizedCareerTestName
+    ? courses.filter((course) => course.title.toLowerCase().includes(normalizedCareerTestName))
+    : courses;
 
   if (loading) {
     return (
@@ -139,9 +145,20 @@ const CareerTest = () => {
               </p>
             )}
 
-            {courses.length > 0 ? (
+            <div className="max-w-xl mx-auto mb-8 relative text-left">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                value={careerTestNameQuery}
+                onChange={(event) => setCareerTestNameQuery(event.target.value)}
+                placeholder="Search career tests by name"
+                aria-label="Search career tests by name"
+                className="pl-10 bg-white"
+              />
+            </div>
+
+            {visibleCareerTests.length > 0 ? (
               <div className="grid gap-6 max-w-5xl mx-auto md:grid-cols-2">
-                {courses.map((course) => (
+                {visibleCareerTests.map((course) => (
                   <div key={course.id} className="bg-white rounded-2xl shadow-lg p-6 text-left">
                     {resolveCourseImageUrl(course.title, course.image_url) && (
                       <img
@@ -198,8 +215,14 @@ const CareerTest = () => {
               <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-6 mb-8">
                 <div className="text-center">
                   <Brain className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No career test available</h3>
-                  <p className="text-gray-600 text-sm mb-4">Check back after a career test is published.</p>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    {normalizedCareerTestName ? "No career test matches that name" : "No career test available"}
+                  </h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    {normalizedCareerTestName
+                      ? "Try a different career test name."
+                      : "Check back after a career test is published."}
+                  </p>
                   <Button onClick={() => navigate('/programs')} variant="outline" className="w-full">
                     Browse Courses
                   </Button>

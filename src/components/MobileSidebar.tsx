@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { X, Home, BookOpen, Info, ShoppingCart, User, Search, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +16,16 @@ interface MobileSidebarProps {
 
 const MobileSidebar = ({ isOpen, onClose, onSearchOpen, onCartClick, onUserProfileOpen }: MobileSidebarProps) => {
   const { isAuthenticated, user, logout } = useAuth();
+  const { pathname } = useLocation();
+
+  const menuItemClass = (path: string) => {
+    const isSelected = path === '/' ? pathname === '/' : pathname === path;
+    return `flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+      isSelected
+        ? 'bg-kiki-purple-50 text-kiki-purple-700'
+        : 'text-gray-700 hover:text-kiki-purple-600 hover:bg-gray-100'
+    }`;
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -56,27 +66,27 @@ const MobileSidebar = ({ isOpen, onClose, onSearchOpen, onCartClick, onUserProfi
           {/* Navigation */}
           <div className="flex-1 px-4 py-6">
             <nav className="space-y-2">
-              <Link
-                to="/"
-                className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:text-kiki-purple-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                onClick={onClose}
-              >
+              <Link to="/" className={menuItemClass('/')} onClick={onClose}>
                 <Home className="w-5 h-5" />
                 <span>Home</span>
               </Link>
-              <Link
-                to="/programs"
-                className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:text-kiki-purple-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                onClick={onClose}
-              >
+              <Link to="/programs" className={menuItemClass('/programs')} onClick={onClose}>
                 <BookOpen className="w-5 h-5" />
                 <span>Programs</span>
               </Link>
-              <Link
-                to="/about"
-                className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:text-kiki-purple-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                onClick={onClose}
-              >
+              {isAuthenticated && (
+                <>
+                  <Link to="/career-test" className={menuItemClass('/career-test')} onClick={onClose}>
+                    <User className="w-5 h-5" />
+                    <span>Career Test</span>
+                  </Link>
+                  <Link to="/enrolled-courses" className={menuItemClass('/enrolled-courses')} onClick={onClose}>
+                    <BookOpen className="w-5 h-5" />
+                    <span>My Courses</span>
+                  </Link>
+                </>
+              )}
+              <Link to="/about" className={menuItemClass('/about')} onClick={onClose}>
                 <Info className="w-5 h-5" />
                 <span>About</span>
               </Link>
@@ -112,7 +122,7 @@ const MobileSidebar = ({ isOpen, onClose, onSearchOpen, onCartClick, onUserProfi
                   </div>
                   
                   <AdminAccess />
-                  
+
                   <button
                     onClick={() => {
                       onUserProfileOpen();
@@ -123,24 +133,6 @@ const MobileSidebar = ({ isOpen, onClose, onSearchOpen, onCartClick, onUserProfi
                     <User className="w-5 h-5" />
                     <span>View Profile</span>
                   </button>
-                  
-                  <Link
-                    to="/enrolled-courses"
-                    className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:text-kiki-purple-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                    onClick={onClose}
-                  >
-                    <BookOpen className="w-5 h-5" />
-                    <span>My Courses</span>
-                  </Link>
-                  
-                  <Link
-                    to="/career-test"
-                    className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:text-kiki-purple-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                    onClick={onClose}
-                  >
-                    <User className="w-5 h-5" />
-                    <span>Career Test</span>
-                  </Link>
                   
                   <button
                     onClick={handleLogout}

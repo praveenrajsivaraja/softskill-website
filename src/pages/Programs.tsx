@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, BookOpen, Phone, MapPin, Loader2 } from 'lucide-react';
+import { Clock, BookOpen, Phone, MapPin, Loader2, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
 import EnrollButton from '@/components/EnrollButton';
@@ -27,6 +28,7 @@ interface Program {
 
 const Programs = () => {
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [programNameQuery, setProgramNameQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -84,6 +86,11 @@ const Programs = () => {
     }
   };
 
+  const normalizedProgramName = programNameQuery.trim().toLowerCase();
+  const visiblePrograms = normalizedProgramName
+    ? programs.filter((program) => program.title.toLowerCase().includes(normalizedProgramName))
+    : programs;
+
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -106,6 +113,16 @@ const Programs = () => {
             <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
               Comprehensive programs designed to unlock potential and foster personal & professional growth
             </p>
+            <div className="max-w-xl mx-auto mb-8 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                value={programNameQuery}
+                onChange={(event) => setProgramNameQuery(event.target.value)}
+                placeholder="Search programs by name"
+                aria-label="Search programs by name"
+                className="pl-10 bg-white"
+              />
+            </div>
             <div className="flex items-center justify-center gap-6 text-sm text-gray-600">
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-kiki-purple-600" />
@@ -122,9 +139,9 @@ const Programs = () => {
         {/* Programs Grid */}
         <section className="py-20 bg-white">
           <div className="container mx-auto px-4">
-            {programs.length > 0 ? (
+            {visiblePrograms.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {programs.map(program => (
+                {visiblePrograms.map(program => (
                   <Card key={program.id} className="group overflow-hidden border-0 card-shadow hover:card-shadow-hover transition-all duration-300 hover-scale rounded-2xl">
                     <div className="relative overflow-hidden">
                       <img
@@ -207,10 +224,18 @@ const Programs = () => {
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">📚</div>
                 <h3 className="text-2xl font-semibold text-gray-900 mb-2">
-                  {isAuthenticated ? "All caught up!" : "No programs available"}
+                  {normalizedProgramName
+                    ? "No programs match that name"
+                    : isAuthenticated
+                      ? "All caught up!"
+                      : "No programs available"}
                 </h3>
                 <p className="text-gray-600">
-                  {isAuthenticated ? "You're enrolled in all available programs." : "Check back later for new programs."}
+                  {normalizedProgramName
+                    ? "Try a different program name."
+                    : isAuthenticated
+                      ? "You're enrolled in all available programs."
+                      : "Check back later for new programs."}
                 </p>
               </div>
             )}
