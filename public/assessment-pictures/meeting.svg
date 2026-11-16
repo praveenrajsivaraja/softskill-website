@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="An employee presenting a chart to two managers">
+  <rect width="640" height="420" rx="28" fill="#EEF6FF"/>
+  <rect x="70" y="70" width="250" height="220" rx="16" fill="#FFFFFF" stroke="#C9D7F2"/>
+  <rect x="100" y="210" width="28" height="50" rx="4" fill="#7C5CE0"/>
+  <rect x="142" y="170" width="28" height="90" rx="4" fill="#3D8BFF"/>
+  <rect x="184" y="130" width="28" height="130" rx="4" fill="#2F6B4F"/>
+  <rect x="226" y="150" width="28" height="110" rx="4" fill="#E07A3D"/>
+  <circle cx="430" cy="150" r="34" fill="#F6C7A1"/>
+  <path d="M388 300c10-62 28-86 42-86s32 24 42 86" fill="#3D2A73"/>
+  <path d="M470 190h70" stroke="#3D2A73" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="180" cy="340" r="22" fill="#E7B48A"/>
+  <rect x="150" y="360" width="60" height="28" rx="10" fill="#2457C5"/>
+  <circle cx="300" cy="340" r="22" fill="#C68642"/>
+  <rect x="270" y="360" width="60" height="28" rx="10" fill="#2F6B4F"/>
+</svg>

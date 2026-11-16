@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="Students waiting in a queue outside an interview room">
+  <rect width="640" height="420" rx="28" fill="#F8F1EA"/>
+  <rect x="40" y="70" width="160" height="280" rx="12" fill="#FFFFFF" stroke="#E4D3B4"/>
+  <rect x="78" y="150" width="84" height="160" rx="8" fill="#3D2A73"/>
+  <rect x="82" y="116" width="76" height="20" rx="6" fill="#7C5CE0"/>
+  <text x="120" y="130" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">INTERVIEW</text>
+  <circle cx="280" cy="180" r="28" fill="#F6C7A1"/>
+  <path d="M246 310c8-52 22-70 34-70s26 18 34 70" fill="#2457C5"/>
+  <rect x="300" y="210" width="36" height="46" rx="4" fill="#FFF"/>
+  <circle cx="390" cy="190" r="28" fill="#E7B48A"/>
+  <path d="M356 320c8-52 22-70 34-70s26 18 34 70" fill="#2F6B4F"/>
+  <rect x="410" y="220" width="36" height="46" rx="4" fill="#FFF7D6"/>
+  <circle cx="500" cy="200" r="28" fill="#C68642"/>
+  <path d="M466 330c8-52 22-70 34-70s26 18 34 70" fill="#E07A3D"/>
+  <rect x="520" y="230" width="36" height="46" rx="4" fill="#FFFFFF"/>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="A student reviewing a professional email and a calendar">
+  <rect width="640" height="420" rx="28" fill="#F7F4EF"/>
+  <rect x="90" y="250" width="460" height="24" rx="8" fill="#E4D3B4"/>
+  <rect x="150" y="150" width="280" height="170" rx="14" fill="#3D2A73"/>
+  <rect x="164" y="164" width="252" height="142" rx="8" fill="#FFFFFF"/>
+  <rect x="184" y="184" width="120" height="70" rx="8" fill="#EEF2FF"/>
+  <path d="M184 196l60 36 60-36" fill="none" stroke="#7C5CE0" stroke-width="6"/>
+  <rect x="318" y="184" width="80" height="70" rx="8" fill="#FFF7D6"/>
+  <rect x="330" y="198" width="14" height="14" fill="#7C5CE0"/>
+  <rect x="350" y="198" width="14" height="14" fill="#E8E0FF"/>
+  <rect x="370" y="198" width="14" height="14" fill="#E8E0FF"/>
+  <rect x="330" y="218" width="14" height="14" fill="#E8E0FF"/>
+  <rect x="350" y="218" width="14" height="14" fill="#2F6B4F"/>
+  <rect x="370" y="218" width="14" height="14" fill="#E8E0FF"/>
+  <circle cx="470" cy="150" r="34" fill="#F6C7A1"/>
+  <path d="M430 280c8-58 26-78 40-78s32 20 40 78" fill="#2457C5"/>
+</svg>

@@ -411,7 +411,8 @@ const AssessmentManagement = () => {
                 </div>
                 <div className="md:col-span-2">
                   <Label>Picture URL</Label>
-                  <Input value={question.pictureUrl} onChange={(event) => updateQuestion(question.key, { pictureUrl: event.target.value })} placeholder="https://" />
+                  <Input value={question.pictureUrl} onChange={(event) => updateQuestion(question.key, { pictureUrl: event.target.value })} placeholder="/assessment-pictures/teamwork.svg" />
+                  <p className="mt-1 text-xs text-gray-500">When a picture link is set, learners see the illustration first and answer from it. The description stays as the image text and is not shown as the question.</p>
                 </div>
                 <div>
                   <Label>Passage title</Label>
@@ -465,17 +466,17 @@ const AssessmentManagement = () => {
               </div>
               {(question.kind === 'choice' || question.kind === 'listening' || question.kind === 'match') && (
                 <div className="space-y-2">
+                  <p className="text-xs text-gray-500">Turn on Correct for every answer that should be accepted.</p>
                   {question.options.map((option) => (
                     <div key={option.key} className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name={`correct-${question.key}`}
+                      <Switch
                         checked={option.isCorrect}
-                        onChange={() => updateQuestion(question.key, {
-                          options: question.options.map((item) => ({ ...item, isCorrect: item.key === option.key })),
+                        onCheckedChange={(checked) => updateQuestion(question.key, {
+                          options: question.options.map((item) => item.key === option.key ? { ...item, isCorrect: checked } : item),
                         })}
-                        aria-label="Correct answer"
+                        aria-label={option.isCorrect ? 'Correct answer' : 'Mark as correct'}
                       />
+                      <span className="w-16 shrink-0 text-xs font-medium text-gray-600">{option.isCorrect ? 'Correct' : 'Option'}</span>
                       <Input
                         value={option.label}
                         onChange={(event) => updateQuestion(question.key, {

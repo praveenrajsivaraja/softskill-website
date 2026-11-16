@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="Three students working together around a laptop">
+  <rect width="640" height="420" rx="28" fill="#F4F0FF"/>
+  <rect x="80" y="286" width="480" height="22" rx="8" fill="#D9C8FF"/>
+  <path d="M90 300c10-70 36-100 58-100s48 30 58 100" fill="#6C4AD4"/>
+  <path d="M262 300c12-78 38-108 58-108s46 30 58 108" fill="#2F6B4F"/>
+  <path d="M434 300c10-70 36-100 58-100s48 30 58 100" fill="#E07A3D"/>
+  <circle cx="148" cy="168" r="32" fill="#F6C7A1"/>
+  <circle cx="320" cy="150" r="32" fill="#E7B48A"/>
+  <circle cx="492" cy="168" r="32" fill="#C68642"/>
+  <rect x="248" y="196" width="144" height="92" rx="10" fill="#3D2A73"/>
+  <rect x="258" y="206" width="124" height="72" rx="6" fill="#E8F7FF"/>
+  <rect x="272" y="220" width="70" height="6" rx="3" fill="#7C5CE0"/>
+  <rect x="272" y="234" width="96" height="5" rx="2" fill="#B9A6F2"/>
+  <rect x="272" y="246" width="80" height="5" rx="2" fill="#B9A6F2"/>
+  <rect x="112" y="214" width="42" height="26" rx="4" fill="#FFF7D6"/>
+  <rect x="486" y="214" width="42" height="26" rx="4" fill="#FFFFFF"/>
+  <path d="M494 224h26M494 232h18" stroke="#7C5CE0" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -202,10 +202,19 @@ const AssessmentPlayer = ({
             <p className="mt-2 text-sm leading-6 text-gray-700">{question.passage}</p>
           </div>
         )}
-        {(question.pictureUrl || question.pictureText) && (
+        {question.pictureUrl && (
+          <div className="mt-4 rounded-3xl bg-gradient-to-b from-sky-50 to-kiki-purple-50 p-4">
+            <p className="text-center text-xs font-semibold uppercase tracking-wide text-kiki-purple-700">Look at the picture</p>
+            <img
+              src={question.pictureUrl}
+              alt={question.pictureText || 'Illustration for this question'}
+              className="mx-auto mt-3 h-56 w-full max-w-md object-contain sm:h-64"
+            />
+          </div>
+        )}
+        {!question.pictureUrl && question.pictureText && (
           <div className="mt-4 overflow-hidden rounded-2xl border border-dashed border-kiki-purple-200 bg-kiki-purple-50">
-            {question.pictureUrl && <img src={question.pictureUrl} alt="" className="h-48 w-full object-cover" />}
-            {question.pictureText && <p className="p-4 text-sm text-gray-700">{question.pictureText}</p>}
+            <p className="p-4 text-sm text-gray-700">{question.pictureText}</p>
           </div>
         )}
         <h2 className="mt-5 text-xl font-bold leading-snug text-gray-900">{question.prompt}</h2>
@@ -240,7 +249,7 @@ const AssessmentPlayer = ({
           <Input className="mt-5 h-12 text-base" value={response} onChange={(event) => setResponse(event.target.value)} placeholder="Type the missing word" />
         )}
         {(question.kind === 'order' || question.kind === 'written') && (
-          <Textarea className="mt-5 text-base" rows={question.kind === 'written' ? 5 : 3} value={response} onChange={(event) => setResponse(event.target.value)} placeholder={question.kind === 'order' ? 'Write the sentence' : 'Write your answer'} />
+          <Textarea className="mt-5 text-base" rows={question.kind === 'written' ? 5 : 3} value={response} onChange={(event) => setResponse(event.target.value)} placeholder={question.kind === 'order' ? 'Write the sentence' : question.pictureUrl ? 'Write one sentence about the picture' : 'Write your answer'} />
         )}
         {feedback && (
           <div className={`mt-5 flex items-start gap-3 rounded-2xl p-4 ${feedback.correct ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>

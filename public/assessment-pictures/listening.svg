@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="One person speaking while another listens and takes notes">
+  <rect width="640" height="420" rx="28" fill="#F3FBF6"/>
+  <circle cx="190" cy="160" r="40" fill="#F6C7A1"/>
+  <path d="M140 320c12-70 34-96 50-96s38 26 50 96" fill="#E07A3D"/>
+  <path d="M230 150c28-20 48-8 48 16" fill="none" stroke="#3D2A73" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="430" cy="168" r="40" fill="#C68642"/>
+  <path d="M380 320c12-70 34-96 50-96s38 26 50 96" fill="#2F6B4F"/>
+  <rect x="470" y="210" width="70" height="86" rx="8" fill="#FFF7D6"/>
+  <path d="M484 232h42M484 248h36M484 264h28" stroke="#7C5CE0" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="414" cy="162" r="4" fill="#3D2A73"/>
+  <circle cx="434" cy="162" r="4" fill="#3D2A73"/>
+</svg>

@@ -171,8 +171,8 @@ export const questionDraftToPayload = (
     .map((option, index) => ({ label: option.label.trim(), isCorrect: option.isCorrect, sortOrder: index }))
     .filter((option) => option.label);
   const usesOptions = draft.kind === 'choice' || draft.kind === 'listening' || draft.kind === 'match';
-  if (usesOptions && (options.length < 2 || options.filter((option) => option.isCorrect).length !== 1)) {
-    return { error: 'Choice questions need at least two options and one correct answer.' };
+  if (usesOptions && (options.length < 2 || !options.some((option) => option.isCorrect))) {
+    return { error: 'Choice questions need at least two options and at least one correct answer.' };
   }
 
   const acceptedAnswers = splitList(draft.acceptedAnswers);

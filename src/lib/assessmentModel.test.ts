@@ -71,6 +71,37 @@ test('blank, order, and written answers follow the sample marking rules', () => 
     [['student', 'students'], ['interview', 'resume']],
   ), true);
   assert.equal(writtenAnswerMeetsRules('Nice picture.', 6, [['students']]), false);
+  assert.equal(writtenAnswerMeetsRules(
+    'Students are waiting in a queue outside the interview room with resumes.',
+    6,
+    [['student', 'students'], ['interview', 'placement', 'resume', 'resumes', 'queue', 'waiting', 'wait']],
+  ), true);
+  assert.equal(writtenAnswerMeetsRules(
+    'A nice office picture.',
+    6,
+    [['student', 'students'], ['interview', 'placement', 'resume', 'resumes', 'queue', 'waiting', 'wait']],
+  ), false);
+});
+
+test('every option the admin marks correct is accepted', () => {
+  const draft = choiceDraft();
+  draft.options = [
+    { key: 'a', label: 'At', isCorrect: true },
+    { key: 'b', label: 'On', isCorrect: true },
+    { key: 'c', label: 'In', isCorrect: false },
+  ];
+  const payload = questionDraftToPayload(draft, 1, 0);
+  assert.equal('error' in payload, false);
+  if ('error' in payload) {
+    return;
+  }
+  const withIds = {
+    ...payload,
+    options: payload.options.map((option) => ({ ...option, id: option.label })),
+  };
+  assert.equal(isAssessmentResponseCorrect(withIds, 'At'), true);
+  assert.equal(isAssessmentResponseCorrect(withIds, 'On'), true);
+  assert.equal(isAssessmentResponseCorrect(withIds, 'In'), false);
 });
 
 test('a question without a correct option cannot be saved', () => {
