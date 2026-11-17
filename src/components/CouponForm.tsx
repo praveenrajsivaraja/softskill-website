@@ -19,6 +19,7 @@ interface Coupon {
   discount_amount: number;
   course_restrictions: string[] | null;
   is_active: boolean;
+  new_users_only?: boolean;
   usage_limit: number | null;
   valid_until: string | null;
 }
@@ -38,6 +39,7 @@ const CouponForm = ({ coupon, courses, isSubmitting, onSubmit, onCancel }: Coupo
     discount_amount: coupon?.discount_amount?.toString() || '',
     course_restrictions: coupon?.course_restrictions || [],
     is_active: coupon?.is_active ?? true,
+    new_users_only: coupon?.new_users_only ?? false,
     usage_limit: coupon?.usage_limit?.toString() || '',
     valid_until: coupon?.valid_until ? coupon.valid_until.split('T')[0] : ''
   });
@@ -184,6 +186,19 @@ const CouponForm = ({ coupon, courses, isSubmitting, onSubmit, onCancel }: Coupo
           disabled={isSubmitting}
         />
         <Label htmlFor="is_active">Active</Label>
+      </div>
+
+      <div className="space-y-1">
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="new_users_only"
+            checked={formData.new_users_only}
+            onCheckedChange={(checked) => setFormData({ ...formData, new_users_only: checked })}
+            disabled={isSubmitting}
+          />
+          <Label htmlFor="new_users_only">New users only</Label>
+        </div>
+        <p className="text-sm text-gray-500">Works only for accounts created in the last 7 days.</p>
       </div>
 
       <div className="flex justify-end space-x-2 pt-4">

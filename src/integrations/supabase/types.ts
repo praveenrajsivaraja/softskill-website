@@ -79,6 +79,7 @@ export type Database = {
           discount_type: string
           id: string
           is_active: boolean
+          new_users_only: boolean
           updated_at: string
           usage_limit: number | null
           used_count: number
@@ -93,6 +94,7 @@ export type Database = {
           discount_type?: string
           id?: string
           is_active?: boolean
+          new_users_only?: boolean
           updated_at?: string
           usage_limit?: number | null
           used_count?: number
@@ -107,6 +109,7 @@ export type Database = {
           discount_type?: string
           id?: string
           is_active?: boolean
+          new_users_only?: boolean
           updated_at?: string
           usage_limit?: number | null
           used_count?: number

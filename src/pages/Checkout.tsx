@@ -12,6 +12,7 @@ import { ShoppingCart, CreditCard, ArrowLeft, Loader2, Tag, AlertTriangle } from
 import { loadRazorpayScript, createRazorpayOrder, initializeRazorpay } from '@/utils/razorpay';
 import { isCareerTestCourse } from '@/lib/courseCatalog';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
+import { canUseNewUserCoupon, NEW_USER_COUPON_MESSAGE } from '@/lib/newUser';
 
 async function markOrderUnpaid(orderId: string, status: 'cancelled' | 'failed') {
   const { error } = await supabase
@@ -190,13 +191,17 @@ const Checkout = () => {
       if (checkoutData.couponCode) {
         const { data: coupon, error: couponError } = await supabase
           .from('coupons')
-          .select('discount_amount, discount_type, course_restrictions, is_active, valid_until, usage_limit, used_count')
+          .select('discount_amount, discount_type, course_restrictions, is_active, valid_until, usage_limit, used_count, new_users_only')
           .ilike('code', checkoutData.couponCode)
           .eq('is_active', true)
           .maybeSingle();
 
         if (couponError) {
           throw couponError;
+        }
+
+        if (coupon?.new_users_only && !canUseNewUserCoupon(true, user.created_at)) {
+          throw new Error(NEW_USER_COUPON_MESSAGE);
         }
 
         const couponApplies = coupon

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardCheck, Plus, Trash2 } from 'lucide-react';
+import { ClipboardCheck, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,9 @@ import {
   type AssessmentQuestionKind,
 } from '@/lib/assessmentModel';
 import type { LearnerAssessmentQuestion } from '@/lib/assessmentApi';
+import { importAssessments } from '@/lib/adminSheetImport';
+import { assessmentSheetHeaders, assessmentSheetSample } from '@/lib/sheetTemplates';
+import AdminSheetMenu from '@/components/AdminSheetMenu';
 
 interface CourseOption {
   id: string;
@@ -295,28 +298,38 @@ const AssessmentManagement = () => {
           Run supabase/migrations/20261115210000_program_assessments.sql in the Supabase SQL editor before saving assessments.
         </p>
       )}
-      <div className="flex max-w-xl flex-wrap items-end gap-3">
-        <div className="min-w-[16rem] flex-1">
-          <Label>Program</Label>
-          <Select value={courseId} onValueChange={setCourseId}>
-            <SelectTrigger><SelectValue placeholder="Choose a program" /></SelectTrigger>
-            <SelectContent>
-              {courses.map((course) => <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>)}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex min-w-[16rem] max-w-xl flex-1 flex-wrap items-end gap-3">
+          <div className="min-w-[16rem] flex-1">
+            <Label>Program</Label>
+            <Select value={courseId} onValueChange={setCourseId}>
+              <SelectTrigger><SelectValue placeholder="Choose a program" /></SelectTrigger>
+              <SelectContent>
+                {courses.map((course) => <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {courseId && (
+            <Button asChild variant="outline">
+              <Link to={`/course/${courseId}#materials`}>View program</Link>
+            </Button>
+          )}
         </div>
-        {courseId && (
-          <Button asChild variant="outline">
-            <Link to={`/course/${courseId}#materials`}>View program</Link>
-          </Button>
-        )}
+        <AdminSheetMenu
+          label="New assessment"
+          singleLabel="Create single assessment"
+          multipleLabel="Upload multiple assessments"
+          templateFilename="assessments-template.csv"
+          templateHeaders={assessmentSheetHeaders}
+          templateSample={assessmentSheetSample}
+          onCreateOne={() => { setEditingId(null); setSettings(emptySettings); setQuestions([createQuestionDraft()]); }}
+          importRows={importAssessments}
+          onComplete={() => { if (courseId) void loadAssessments(courseId); }}
+        />
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => { setEditingId(null); setSettings(emptySettings); setQuestions([createQuestionDraft()]); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          New assessment
-        </Button>
-      </div>
+      <p className="text-sm text-gray-500">
+        Use the sample CSV. One row is one question. Rows with the same program and assessment title update that assessment. Set program_title to a saved course title.
+      </p>
       <div className="grid gap-3 md:grid-cols-2">
         {assessments.map((assessment) => (
           <button key={assessment.id} type="button" className="rounded-2xl border bg-white p-4 text-left" onClick={() => void openAssessment(assessment)}>

@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { BookOpen, Plus, Edit, Trash2, Users, Settings } from 'lucide-react';
 import AdminSearchableTab from './AdminSearchableTab';
@@ -23,6 +23,9 @@ import {
   saveCourseMaterials,
   type CourseDocumentDraft,
 } from '@/lib/courseDocuments';
+import { importCourses } from '@/lib/adminSheetImport';
+import { careerTestSheetSample, courseSheetHeaders, courseSheetSample } from '@/lib/sheetTemplates';
+import AdminSheetMenu from '@/components/AdminSheetMenu';
 
 interface Course {
   id: string;
@@ -357,17 +360,27 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                 placeholder="Search courses..."
               >
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold">
-                      {catalog === 'career_test' ? 'Career Tests' : 'All Courses'}
-                    </h3>
+                  <div className="flex justify-between items-center gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold">
+                        {catalog === 'career_test' ? 'Career Tests' : 'All Courses'}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        Download the sample, add one row per item, and save it as CSV. A matching title is updated.
+                      </p>
+                    </div>
+                    <AdminSheetMenu
+                      label={catalog === 'career_test' ? 'Add career test' : 'Add course'}
+                      singleLabel={catalog === 'career_test' ? 'Create single career test' : 'Create single course'}
+                      multipleLabel={catalog === 'career_test' ? 'Upload multiple career tests' : 'Upload multiple courses'}
+                      templateFilename={catalog === 'career_test' ? 'career-tests-template.csv' : 'courses-template.csv'}
+                      templateHeaders={courseSheetHeaders}
+                      templateSample={catalog === 'career_test' ? careerTestSheetSample : courseSheetSample}
+                      onCreateOne={() => { resetForm(); setIsDialogOpen(true); }}
+                      importRows={(rows) => importCourses(rows, catalog === 'career_test' ? COURSE_TYPE_CAREER_TEST : COURSE_TYPE_COURSE)}
+                      onComplete={fetchCourses}
+                    />
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button onClick={resetForm}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          {catalog === 'career_test' ? 'Add Career Test' : 'Add Course'}
-                        </Button>
-                      </DialogTrigger>
                       <DialogContent className="max-w-2xl">
                         <DialogHeader>
                           <DialogTitle>

@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tag, X, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { canUseNewUserCoupon, NEW_USER_COUPON_MESSAGE } from '@/lib/newUser';
 
 interface CouponInputProps {
   onCouponApply: (discount: number, couponCode: string) => void;
@@ -25,6 +27,7 @@ const CouponInput: React.FC<CouponInputProps> = ({
   const [couponCode, setCouponCode] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const validateAndApplyCoupon = async () => {
     if (!couponCode.trim()) {
@@ -86,6 +89,24 @@ const CouponInput: React.FC<CouponInputProps> = ({
           title: "Coupon Limit Reached",
           description: "This coupon has reached its usage limit.",
           variant: "destructive",
+        });
+        return;
+      }
+
+      if (coupon.new_users_only && !user) {
+        toast({
+          title: 'Sign in required',
+          description: NEW_USER_COUPON_MESSAGE,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!canUseNewUserCoupon(coupon.new_users_only, user?.created_at)) {
+        toast({
+          title: 'New users only',
+          description: NEW_USER_COUPON_MESSAGE,
+          variant: 'destructive',
         });
         return;
       }

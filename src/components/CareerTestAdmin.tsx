@@ -9,6 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import CourseManagement from '@/components/CourseManagement';
+import AdminSheetMenu from '@/components/AdminSheetMenu';
+import { importCareerSections } from '@/lib/adminSheetImport';
+import { careerSectionSheetHeaders, careerSectionSheetSample } from '@/lib/sheetTemplates';
 import type { Database } from '@/integrations/supabase/types';
 
 type PageSection = Database['public']['Tables']['page_sections']['Row'];
@@ -164,11 +167,22 @@ const CareerTestAdmin = () => {
               />
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button onClick={saveSection}>
               {editingSection ? <Edit className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
               {editingSection ? 'Update Section' : 'Add Section'}
             </Button>
+            <AdminSheetMenu
+              label="Page sections"
+              singleLabel="Create single section"
+              multipleLabel="Upload multiple sections"
+              templateFilename="career-test-sections-template.csv"
+              templateHeaders={careerSectionSheetHeaders}
+              templateSample={careerSectionSheetSample}
+              onCreateOne={resetForm}
+              importRows={importCareerSections}
+              onComplete={fetchSections}
+            />
             {editingSection && (
               <Button variant="outline" onClick={resetForm}>
                 Cancel

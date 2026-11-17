@@ -5,8 +5,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { isNewSiteUser } from '@/lib/newUser';
+import { importUsers } from '@/lib/adminSheetImport';
+import { describeSheetImport } from '@/lib/spreadsheet';
+import { userSheetHeaders, userSheetSample } from '@/lib/sheetTemplates';
+import AdminSheetMenu from '@/components/AdminSheetMenu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Trash2, Loader2, RefreshCw } from 'lucide-react';
 import AdminSearchableTab from '@/components/AdminSearchableTab';
@@ -33,6 +42,9 @@ const UserManagement = () => {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
   const [updatingStatusUserId, setUpdatingStatusUserId] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [newUser, setNewUser] = useState({ email: '', full_name: '', password: '', role: 'student' as UserRole });
   const { toast } = useToast();
   const { user: signedInUser } = useAuth();
 
@@ -271,12 +283,60 @@ const UserManagement = () => {
     );
   }
 
+  const openCreateUser = () => {
+    setNewUser({ email: '', full_name: '', password: '', role: 'student' });
+    setIsCreateOpen(true);
+  };
+
+  const createSingleUser = async () => {
+    setIsCreatingUser(true);
+    try {
+      const result = await importUsers([{
+        email: newUser.email,
+        full_name: newUser.full_name,
+        password: newUser.password,
+        role: newUser.role,
+        is_active: 'true',
+      }], signedInUser?.id ?? null);
+      const saved = result.created + result.updated > 0;
+      toast({
+        title: result.created > 0 ? 'User created' : saved ? 'User updated' : 'User was not created',
+        description: describeSheetImport(result),
+        variant: saved ? 'default' : 'destructive',
+      });
+      if (saved) {
+        setIsCreateOpen(false);
+        fetchUsers();
+      }
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
   return (
+    <>
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>User Management</CardTitle>
-          <Button
+        <div className="flex justify-between items-center gap-3">
+          <div>
+            <CardTitle>User Management</CardTitle>
+            <p className="mt-1 text-sm text-gray-500">
+              Download the sample, add one row per person, and save it as CSV. A matching email updates that user.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <AdminSheetMenu
+              label="Create user"
+              singleLabel="Create single user"
+              multipleLabel="Upload multiple users"
+              templateFilename="users-template.csv"
+              templateHeaders={userSheetHeaders}
+              templateSample={userSheetSample}
+              onCreateOne={openCreateUser}
+              importRows={(rows) => importUsers(rows, signedInUser?.id ?? null)}
+              onComplete={fetchUsers}
+            />
+            <Button
             onClick={refreshUsers}
             disabled={refreshing}
             variant="outline"
@@ -289,6 +349,7 @@ const UserManagement = () => {
             )}
             Refresh
           </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -312,7 +373,12 @@ const UserManagement = () => {
               {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.full_name || 'N/A'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span>{user.full_name || 'N/A'}</span>
+                      {isNewSiteUser(user.created_at) && <Badge className="bg-kiki-purple-100 text-kiki-purple-800">New</Badge>}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Select
                       value={user.role ?? 'student'}
@@ -412,6 +478,48 @@ const UserManagement = () => {
         </AdminSearchableTab>
       </CardContent>
     </Card>
+    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create single user</DialogTitle>
+          <DialogDescription>
+            The person can sign in with this email and password. The password is not shown again after the account is created.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="new-user-email">Email</Label>
+            <Input id="new-user-email" type="email" value={newUser.email} onChange={(event) => setNewUser({ ...newUser, email: event.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="new-user-name">Name</Label>
+            <Input id="new-user-name" value={newUser.full_name} onChange={(event) => setNewUser({ ...newUser, full_name: event.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="new-user-password">Password</Label>
+            <Input id="new-user-password" type="password" value={newUser.password} onChange={(event) => setNewUser({ ...newUser, password: event.target.value })} />
+          </div>
+          <div>
+            <Label>Role</Label>
+            <Select value={newUser.role} onValueChange={(value) => setNewUser({ ...newUser, role: value as UserRole })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {USER_ROLES.map((role) => (
+                  <SelectItem key={role} value={role}>{role}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+          <Button onClick={() => void createSingleUser()} disabled={isCreatingUser}>
+            {isCreatingUser ? 'Creating…' : 'Create user'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 

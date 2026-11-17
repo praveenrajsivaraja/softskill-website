@@ -17,6 +17,7 @@ interface Coupon {
   discount_amount: number;
   course_restrictions: string[] | null;
   is_active: boolean;
+  new_users_only?: boolean;
   usage_limit: number | null;
   used_count: number;
   valid_from: string;
@@ -121,6 +122,7 @@ const CouponManagement = () => {
         discount_amount: parseFloat(formData.discount_amount),
         course_restrictions: formData.course_restrictions.length > 0 ? formData.course_restrictions : null,
         is_active: formData.is_active,
+        new_users_only: Boolean(formData.new_users_only),
         usage_limit: formData.usage_limit ? parseInt(formData.usage_limit) : null,
         valid_until: formData.valid_until || null,
       };
@@ -300,7 +302,10 @@ const CouponManagement = () => {
                     return (
                       <TableRow key={coupon.id}>
                         <TableCell className="font-mono font-medium">
-                          {coupon.code}
+                          <div className="flex items-center gap-2">
+                            {coupon.code}
+                            {coupon.new_users_only && <Badge variant="secondary">New users</Badge>}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {coupon.discount_type === 'fixed' ? 'Fixed' : 'Percentage'}

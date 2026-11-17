@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { ShoppingCart, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { canUseNewUserCoupon, NEW_USER_COUPON_MESSAGE } from '@/lib/newUser';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -168,8 +169,14 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose, onCartUpdate }) => {
         .eq('is_active', true)
         .maybeSingle();
 
-      if (error || !coupon) {
+      if (error || !coupon || !canUseNewUserCoupon(coupon.new_users_only, user?.created_at)) {
         handleCouponRemove();
+        if (coupon?.new_users_only) {
+          toast({
+            title: 'Coupon removed',
+            description: NEW_USER_COUPON_MESSAGE,
+          });
+        }
         return;
       }
 
