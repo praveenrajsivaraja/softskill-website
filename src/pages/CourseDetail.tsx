@@ -14,6 +14,8 @@ import CourseMaterials from '@/components/CourseMaterials';
 import { fetchCourseMaterials, type CourseMaterial } from '@/lib/courseDocuments';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
 import CourseSections from '@/components/CourseSections';
+import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
+import { canUsePurchasedCourseActions } from '@/lib/courseAccess';
 
 interface Program {
   id: string;
@@ -29,6 +31,7 @@ interface Program {
   total_lessons: number | null;
   highlights: string[] | null;
   learning_points: string[] | null;
+  course_type: string | null;
 }
 
 const CourseDetail = () => {
@@ -36,6 +39,7 @@ const CourseDetail = () => {
   const [course, setCourse] = useState<Program | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [hasPaidOrder, setHasPaidOrder] = useState(false);
   const [canViewMaterials, setCanViewMaterials] = useState(false);
   const [materials, setMaterials] = useState<CourseMaterial[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
@@ -57,6 +61,7 @@ const CourseDetail = () => {
       checkEnrollmentStatus();
     } else {
       setIsEnrolled(false);
+      setHasPaidOrder(false);
       setCanViewMaterials(false);
       setEnrollmentLoading(false);
     }
@@ -97,15 +102,14 @@ const CourseDetail = () => {
   const checkEnrollmentStatus = async () => {
     if (!user?.id || !courseId) {
       setIsEnrolled(false);
+      setHasPaidOrder(false);
       setCanViewMaterials(false);
       setEnrollmentLoading(false);
       return;
     }
 
     try {
-      console.log('Checking enrollment status for:', { userId: user.id, courseId });
-      
-      const [enrollmentResult, profileResult] = await Promise.all([
+      const [enrollmentResult, profileResult, orderResult] = await Promise.all([
         supabase
           .from('enrollments')
           .select('id, status')
@@ -118,24 +122,42 @@ const CourseDetail = () => {
           .select('role')
           .eq('id', user.id)
           .maybeSingle(),
+        supabase
+          .from('orders')
+          .select('id, order_items!inner(course_id)')
+          .eq('user_id', user.id)
+          .in('status', ['confirmed', 'completed'])
+          .eq('order_items.course_id', courseId)
+          .limit(1),
       ]);
 
+      if (orderResult.error) {
+        console.error(JSON.stringify({
+          event: 'course_purchase_lookup_failed',
+          code: orderResult.error.code,
+          message: orderResult.error.message,
+        }));
+      }
+
+      const enrolled = !enrollmentResult.error && Boolean(enrollmentResult.data);
+      const paid = !orderResult.error && (orderResult.data?.length ?? 0) > 0;
       if (enrollmentResult.error) {
         console.error(JSON.stringify({
           event: 'course_enrollment_lookup_failed',
           code: enrollmentResult.error.code,
           message: enrollmentResult.error.message,
         }));
-        setIsEnrolled(false);
-        setCanViewMaterials(profileResult.data?.role === 'admin');
-      } else {
-        const enrolled = Boolean(enrollmentResult.data);
-        setIsEnrolled(enrolled);
-        setCanViewMaterials(enrolled || profileResult.data?.role === 'admin');
       }
+      setIsEnrolled(enrolled);
+      setHasPaidOrder(paid);
+      setCanViewMaterials(enrolled || paid || profileResult.data?.role === 'admin');
     } catch (error) {
-      console.error('Error checking enrollment:', error);
+      console.error(JSON.stringify({
+        event: 'course_access_lookup_failed',
+        message: error instanceof Error ? error.message : 'unknown',
+      }));
       setIsEnrolled(false);
+      setHasPaidOrder(false);
       setCanViewMaterials(false);
     } finally {
       setEnrollmentLoading(false);
@@ -157,7 +179,7 @@ const CourseDetail = () => {
       console.log('Fetching course with ID:', courseId);
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
-        .select('id, title, description, image_url, price, original_price, duration, mode, age_range, category, total_lessons, highlights, learning_points')
+        .select('id, title, description, image_url, price, original_price, duration, mode, age_range, category, total_lessons, highlights, learning_points, course_type')
         .eq('id', courseId)
         .single();
 
@@ -321,15 +343,37 @@ const CourseDetail = () => {
         </div>
       </div>
 
-      {canViewMaterials && (
+      {canViewMaterials ? (
         materialsLoading ? (
           <section id="materials" className="container mx-auto px-4 pt-8 scroll-mt-24">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Course materials</h2>
             <div className="h-48 animate-pulse rounded-xl bg-white" />
           </section>
         ) : (
-          <CourseMaterials courseId={course.id} documents={materials} />
+          <CourseMaterials
+            courseId={course.id}
+            documents={materials}
+            canUsePurchasedActions={canUsePurchasedCourseActions({ isEnrolled, hasPaidOrder })}
+          />
         )
+      ) : (
+        <section className="container mx-auto px-4 pt-8">
+          <Card>
+            <CardContent className="py-10 text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Available after purchase</h2>
+              <p className="text-gray-600 mb-6">
+                {course.course_type === COURSE_TYPE_CAREER_TEST
+                  ? 'Purchase this career test when you are ready to open the questions and materials.'
+                  : 'Purchase this program when you are ready to open the lessons, documents, and assessments.'}
+              </p>
+              <EnrollButton
+                courseId={course.id}
+                isEnrolled={isEnrolled}
+                className="bg-kiki-purple-600 hover:bg-kiki-purple-700 text-white"
+              />
+            </CardContent>
+          </Card>
+        </section>
       )}
 
       {/* Course Content - Full Width Layout */}
@@ -378,7 +422,20 @@ const CourseDetail = () => {
           </TabsContent>
 
           <TabsContent value="curriculum" className="mt-6">
-            <CourseSections courseId={course.id} isEnrolled={isEnrolled} />
+            {canViewMaterials ? (
+              <CourseSections courseId={course.id} isEnrolled={isEnrolled} />
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">Lessons open after purchase</h2>
+                  <p className="text-gray-600">
+                    {course.course_type === COURSE_TYPE_CAREER_TEST
+                      ? 'Purchase this career test when you are ready to open the questions and materials.'
+                      : 'Purchase this program when you are ready to open the lessons.'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           </Tabs>

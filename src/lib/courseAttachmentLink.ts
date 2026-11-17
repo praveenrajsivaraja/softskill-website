@@ -1,4 +1,36 @@
-const googleDriveHosts = new Set(['drive.google.com', 'docs.google.com']);
+const googleDriveHosts = new Set([
+  'drive.google.com',
+  'docs.google.com',
+  'drive.usercontent.google.com',
+]);
+
+const bareHost = (hostname: string) => hostname.toLowerCase().replace(/^www\./, '');
+
+const isAcceptedGoogleHost = (hostname: string) => {
+  const host = bareHost(hostname);
+  return googleDriveHosts.has(host)
+    || host === 'googleusercontent.com'
+    || host.endsWith('.googleusercontent.com');
+};
+
+const normalizeGoogleLink = (value: string) => {
+  let candidate = value.trim();
+  if (/^(drive|docs)\.google\.com\//i.test(candidate)) {
+    candidate = `https://${candidate}`;
+  }
+
+  try {
+    const url = new URL(candidate);
+    const host = bareHost(url.hostname);
+    const innerLink = url.searchParams.get('q') || url.searchParams.get('url') || url.searchParams.get('imgurl');
+    if ((host === 'google.com' || host.endsWith('.google.com')) && innerLink && (url.pathname === '/url' || url.pathname === '/imgres')) {
+      return normalizeGoogleLink(innerLink);
+    }
+    return url.toString();
+  } catch {
+    return candidate;
+  }
+};
 
 export interface CourseAttachmentRecord {
   courseId: string;
@@ -21,8 +53,8 @@ type DriveFileKind = 'file' | 'document' | 'spreadsheet' | 'presentation';
 
 const isGoogleHost = (value: string): URL | null => {
   try {
-    const url = new URL(value);
-    if (url.protocol !== 'https:' || !googleDriveHosts.has(url.hostname)) {
+    const url = new URL(normalizeGoogleLink(value));
+    if (url.protocol !== 'https:' || !isAcceptedGoogleHost(url.hostname)) {
       return null;
     }
     return url;
@@ -32,7 +64,7 @@ const isGoogleHost = (value: string): URL | null => {
 };
 
 export const isGoogleDriveAttachmentUrl = (value: string): boolean => {
-  return isGoogleHost(value.trim()) !== null;
+  return isGoogleHost(value) !== null;
 };
 
 const readDriveFile = (url: URL): { id: string; kind: DriveFileKind } | null => {
@@ -53,6 +85,13 @@ const readDriveFile = (url: URL): { id: string; kind: DriveFileKind } | null => 
   const queryId = url.searchParams.get('id');
   if (queryId && /^[a-zA-Z0-9_-]+$/.test(queryId)) {
     return { id: queryId, kind: 'file' };
+  }
+
+  if (bareHost(url.hostname).endsWith('googleusercontent.com')) {
+    const hostedFile = url.pathname.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (hostedFile) {
+      return { id: hostedFile[1], kind: 'file' };
+    }
   }
 
   return null;
@@ -120,9 +159,15 @@ export const assessmentPictureSources = (pictureUrl: string | null | undefined):
     return [];
   }
 
-  const driveFile = readDriveFileFromText(trimmedUrl);
+  const normalizedUrl = normalizeGoogleLink(trimmedUrl);
+  const parsedUrl = isGoogleHost(normalizedUrl);
+  if (parsedUrl && bareHost(parsedUrl.hostname).endsWith('googleusercontent.com')) {
+    return [parsedUrl.toString()];
+  }
+
+  const driveFile = parsedUrl ? readDriveFile(parsedUrl) : null;
   if (!driveFile) {
-    return [trimmedUrl];
+    return [normalizedUrl.startsWith('http') ? normalizedUrl : trimmedUrl];
   }
 
   const thumbnail = `https://drive.google.com/thumbnail?id=${driveFile.id}&sz=w1000`;
@@ -141,8 +186,11 @@ export const buildDocumentPreviewImageUrl = (
   previewImageUrl?: string | null,
 ): string | null => {
   const customPreview = previewImageUrl?.trim() ?? '';
-  if (customPreview.startsWith('https://')) {
-    return customPreview;
+  if (customPreview) {
+    const previewSource = assessmentPictureSources(customPreview)[0];
+    if (previewSource && (previewSource.startsWith('https://') || previewSource.startsWith('http://') || previewSource.startsWith('/'))) {
+      return previewSource;
+    }
   }
 
   const driveFile = readDriveFileFromText(driveUrl);

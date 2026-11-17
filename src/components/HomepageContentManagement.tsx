@@ -285,7 +285,7 @@ const HomepageContentManagement = () => {
                   id="image_url"
                   value={formData.image_url}
                   onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://example.com/image.jpg"
+                  placeholder="https://drive.google.com/file/d/FILE_ID/view or a Google image link"
                 />
               </div>
               
@@ -423,6 +423,7 @@ const HomepageContentManagement = () => {
                   <Input
                     value={formData.image_url}
                     onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                    placeholder="https://drive.google.com/file/d/FILE_ID/view or a Google image link"
                   />
                 </div>
                 

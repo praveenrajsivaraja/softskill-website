@@ -7,7 +7,9 @@ import {
   buildDocumentPreviewImageUrl,
   chooseCourseAttachments,
   groupDocumentsByMonth,
+  isGoogleDriveAttachmentUrl,
 } from './courseAttachmentLink.ts';
+import { resolveCourseImageUrl } from './courseImages.ts';
 
 test('documents are grouped by month and a custom preview image is preferred', () => {
   const groups = groupDocumentsByMonth([
@@ -64,6 +66,40 @@ test('an enrolled course still gets the Drive link stored on the course when the
   assert.equal(
     buildAttachmentDownloadUrl(chosen[0].attachmentUrl),
     'https://drive.google.com/uc?export=download&id=abc_DEF-123',
+  );
+});
+
+test('a document accepts a Google Docs link, a Drive link, or a Google redirect to either', () => {
+  assert.equal(isGoogleDriveAttachmentUrl('https://docs.google.com/document/d/abc_DEF-123/edit?usp=sharing'), true);
+  assert.equal(isGoogleDriveAttachmentUrl('https://docs.google.com/presentation/d/abc_DEF-123/edit'), true);
+  assert.equal(isGoogleDriveAttachmentUrl('drive.google.com/file/d/abc_DEF-123/view'), true);
+  assert.equal(
+    isGoogleDriveAttachmentUrl('https://www.google.com/url?q=https%3A%2F%2Fdrive.google.com%2Ffile%2Fd%2Fabc_DEF-123%2Fview'),
+    true,
+  );
+  assert.equal(isGoogleDriveAttachmentUrl('https://example.com/notes.pdf'), false);
+  assert.equal(
+    buildDocumentEmbedUrl('https://docs.google.com/document/d/abc_DEF-123/edit?usp=sharing'),
+    'https://docs.google.com/document/d/abc_DEF-123/preview',
+  );
+  assert.equal(
+    buildDocumentPreviewImageUrl(
+      'https://docs.google.com/document/d/doc-id/edit',
+      'https://drive.google.com/file/d/abc_DEF-123/view',
+    ),
+    'https://lh3.googleusercontent.com/d/abc_DEF-123',
+  );
+  assert.equal(
+    assessmentPictureSources('https://lh3.googleusercontent.com/d/abc_DEF-123=w1000')[0],
+    'https://lh3.googleusercontent.com/d/abc_DEF-123=w1000',
+  );
+  assert.equal(
+    resolveCourseImageUrl('Spoken English Class', 'https://drive.google.com/file/d/abc_DEF-123/view?usp=sharing'),
+    'https://lh3.googleusercontent.com/d/abc_DEF-123',
+  );
+  assert.equal(
+    resolveCourseImageUrl('Custom Course', 'https://www.google.com/imgres?imgurl=https%3A%2F%2Fimages.example.com%2Fcover.jpg'),
+    'https://images.example.com/cover.jpg',
   );
 });
 

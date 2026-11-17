@@ -3,6 +3,7 @@ import React from 'react';
 import { ExternalLink, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { buildDocumentEmbedUrl, isGoogleDriveAttachmentUrl } from '@/lib/courseAttachmentLink';
 
 interface FileViewerProps {
   fileUrl: string | null;
@@ -36,20 +37,17 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, title = "Document", cl
   };
 
   const getGoogleDriveFileId = (url: string): string | null => {
-    const match = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
+    const match = url.match(/\/(?:file|document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     return match ? match[1] : null;
   };
 
   const getEmbedUrl = (url: string): string | null => {
-    const extension = getFileExtension(url);
-    
-    // Check if it's a Google Drive URL
-    if (url.includes('drive.google.com')) {
-      const fileId = getGoogleDriveFileId(url);
-      if (fileId) {
-        return `https://drive.google.com/file/d/${fileId}/preview`;
-      }
+    const googleEmbed = buildDocumentEmbedUrl(url);
+    if (googleEmbed) {
+      return googleEmbed;
     }
+
+    const extension = getFileExtension(url);
     
     switch (extension) {
       case 'pdf':
@@ -73,7 +71,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, title = "Document", cl
 
   const isSupported = (url: string): boolean => {
     const extension = getFileExtension(url);
-    return ['pdf', 'ppt', 'pptx', 'doc', 'docx'].includes(extension) || url.includes('drive.google.com');
+    return ['pdf', 'ppt', 'pptx', 'doc', 'docx'].includes(extension) || isGoogleDriveAttachmentUrl(url);
   };
 
   const handleFullscreenView = () => {

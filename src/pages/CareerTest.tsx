@@ -158,8 +158,22 @@ const CareerTest = () => {
 
             {visibleCareerTests.length > 0 ? (
               <div className="grid gap-6 max-w-5xl mx-auto md:grid-cols-2">
-                {visibleCareerTests.map((course) => (
-                  <div key={course.id} className="bg-white rounded-2xl shadow-lg p-6 text-left">
+                {visibleCareerTests.map((course) => {
+                  const hasPurchased = enrolledCourseIds.includes(course.id);
+                  return (
+                  <div
+                    key={course.id}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`View details for ${course.title}`}
+                    onClick={() => navigate(`/course/${course.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        navigate(`/course/${course.id}`);
+                      }
+                    }}
+                    className="bg-white rounded-2xl shadow-lg p-6 text-left cursor-pointer"
+                  >
                     {resolveCourseImageUrl(course.title, course.image_url) && (
                       <img
                         src={resolveCourseImageUrl(course.title, course.image_url) ?? undefined}
@@ -194,7 +208,15 @@ const CareerTest = () => {
                       </div>
                     )}
 
-                    <div className="space-y-2">
+                    {!hasPurchased && (
+                      <p className="text-sm font-medium text-kiki-purple-700 mb-4">Available after you purchase this career test.</p>
+                    )}
+
+                    <div
+                      className="space-y-2"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
                       <Button
                         variant="outline"
                         className="w-full border-kiki-purple-600 text-kiki-purple-600 hover:bg-kiki-purple-50"
@@ -204,12 +226,13 @@ const CareerTest = () => {
                       </Button>
                       <EnrollButton
                         courseId={course.id}
-                        isEnrolled={enrolledCourseIds.includes(course.id)}
+                        isEnrolled={hasPurchased}
                         className="w-full"
                       />
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-6 mb-8">

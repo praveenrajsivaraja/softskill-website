@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { BookOpen, Plus, Edit, Trash2, GripVertical, Link, Video, FileText, Image } from 'lucide-react';
 import AdminSearchableTab from './AdminSearchableTab';
+import { isGoogleDriveAttachmentUrl } from '@/lib/courseAttachmentLink';
 
 interface Course {
   id: string;
@@ -408,11 +409,11 @@ const AdminSectionManagement = () => {
   };
 
   const isValidGoogleDriveUrl = (url: string) => {
-    return url.includes('drive.google.com') && url.includes('/file/d/');
+    return isGoogleDriveAttachmentUrl(url);
   };
 
   const isValidPdfUrl = (url: string) => {
-    return url.toLowerCase().includes('.pdf') || url.includes('drive.google.com');
+    return url.toLowerCase().includes('.pdf') || isGoogleDriveAttachmentUrl(url);
   };
 
   const getUrlTypeInfo = (url: string, type: string) => {
@@ -422,6 +423,10 @@ const AdminSectionManagement = () => {
       return { isValid: true, info: 'Google Drive Video' };
     }
     
+    if (type === 'document' && isGoogleDriveAttachmentUrl(url)) {
+      return { isValid: true, info: url.includes('docs.google.com') ? 'Google document' : 'Google Drive document' };
+    }
+
     if (type === 'document' && isValidPdfUrl(url)) {
       return { isValid: true, info: 'PDF Document' };
     }
@@ -641,7 +646,7 @@ const AdminSectionManagement = () => {
                                       contentForm.type === 'video' ? 
                                       'https://drive.google.com/file/d/YOUR_FILE_ID/view or https://youtube.com/watch?v=...' :
                                       contentForm.type === 'document' ? 
-                                      'https://drive.google.com/file/d/YOUR_FILE_ID/view or direct PDF URL' :
+                                      'https://docs.google.com/... or https://drive.google.com/file/d/YOUR_FILE_ID/view' :
                                       contentForm.type === 'link' ? 'https://example.com' :
                                       'URL to your content'
                                     }
@@ -656,7 +661,7 @@ const AdminSectionManagement = () => {
                                     )}
                                     {contentForm.type === 'document' && (
                                       <>
-                                        <strong>For Google Drive PDFs:</strong> Share the file → Copy link → Paste here<br/>
+                                        <strong>For Google Docs or Google Drive:</strong> Share the file → Copy link → Paste here<br/>
                                         <strong>For direct PDFs:</strong> Use any publicly accessible PDF URL
                                       </>
                                     )}

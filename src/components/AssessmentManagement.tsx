@@ -424,8 +424,8 @@ const AssessmentManagement = () => {
                 </div>
                 <div className="md:col-span-2">
                   <Label>Picture URL</Label>
-                  <Input value={question.pictureUrl} onChange={(event) => updateQuestion(question.key, { pictureUrl: event.target.value })} placeholder="https://drive.google.com/file/d/FILE_ID/view" />
-                  <p className="mt-1 text-xs text-gray-500">Paste a Google Drive image link or a direct image address. Share the Drive file as Anyone with the link, or the picture stays blank.</p>
+                  <Input value={question.pictureUrl} onChange={(event) => updateQuestion(question.key, { pictureUrl: event.target.value })} placeholder="https://drive.google.com/file/d/FILE_ID/view or a Google image link" />
+                  <p className="mt-1 text-xs text-gray-500">Paste a Google image link or a Google Drive image link. Share the Drive file as Anyone with the link, or the picture stays blank.</p>
                 </div>
                 <div>
                   <Label>Passage title</Label>

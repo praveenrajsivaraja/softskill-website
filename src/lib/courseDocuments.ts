@@ -46,7 +46,7 @@ export const documentsReadyToSave = (
   for (const [index, draft] of filledDrafts.entries()) {
     const driveUrl = draft.driveUrl.trim();
     if (!isGoogleDriveAttachmentUrl(driveUrl)) {
-      return { error: 'Each document needs a Google Drive or Google Docs share link.' };
+      return { error: 'Each document needs a Google Drive or Google Docs link.' };
     }
 
     const monthIndex = Number(draft.monthIndex);
@@ -55,8 +55,8 @@ export const documentsReadyToSave = (
     }
 
     const previewImageUrl = draft.previewImageUrl.trim();
-    if (previewImageUrl && !previewImageUrl.startsWith('https://')) {
-      return { error: 'A preview image must be an https link.' };
+    if (previewImageUrl && !previewImageUrl.startsWith('https://') && !isGoogleDriveAttachmentUrl(previewImageUrl)) {
+      return { error: 'A preview image must be a Google, Google Drive, or https image link.' };
     }
 
     documents.push({

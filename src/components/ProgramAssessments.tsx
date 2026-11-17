@@ -15,9 +15,10 @@ import {
 
 interface ProgramAssessmentsProps {
   courseId: string;
+  canStart: boolean;
 }
 
-const ProgramAssessments = ({ courseId }: ProgramAssessmentsProps) => {
+const ProgramAssessments = ({ courseId, canStart }: ProgramAssessmentsProps) => {
   const [assessments, setAssessments] = useState<ProgramAssessment[]>([]);
   const [bestScores, setBestScores] = useState<Record<string, AssessmentAttemptSummary>>({});
   const [active, setActive] = useState<LearnerAssessment | null>(null);
@@ -52,6 +53,9 @@ const ProgramAssessments = ({ courseId }: ProgramAssessmentsProps) => {
   }, [courseId]);
 
   const startAssessment = async (assessmentId: string) => {
+    if (!canStart) {
+      return;
+    }
     setError(null);
     try {
       setActive(await openLearnerAssessment(assessmentId));
@@ -130,9 +134,13 @@ const ProgramAssessments = ({ courseId }: ProgramAssessmentsProps) => {
                   Latest score {latest.score}/{latest.totalMarks} · {latest.passed ? 'Passed' : 'Not passed yet'}
                 </p>
               )}
-              <Button className="mt-4 w-full" onClick={() => void startAssessment(assessment.id)}>
-                {latest ? 'Try again' : 'Start'}
-              </Button>
+              {canStart ? (
+                <Button className="mt-4 w-full" onClick={() => void startAssessment(assessment.id)}>
+                  {latest ? 'Try again' : 'Start'}
+                </Button>
+              ) : (
+                <p className="mt-4 text-sm font-medium text-kiki-purple-700">Purchase to start this assessment.</p>
+              )}
             </article>
           );
         })}

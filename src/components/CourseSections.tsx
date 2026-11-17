@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight, PlayCircle, FileText, HelpCircle, CheckCircle, ExternalLink, Image, Link } from 'lucide-react';
 import FileViewer from '@/components/FileViewer';
+import { assessmentPictureSources, buildDocumentEmbedUrl } from '@/lib/courseAttachmentLink';
 
 interface CourseContent {
   id: string;
@@ -230,15 +231,9 @@ const CourseSections = ({ courseId, isEnrolled = false }: CourseSectionsProps) =
       return `https://www.youtube.com/embed/${videoId}`;
     }
 
-    if (url.includes('drive.google.com')) {
-      if (url.includes('/file/d/')) {
-        const fileId = url.split('/file/d/')[1]?.split('/')[0];
-        return `https://drive.google.com/file/d/${fileId}/preview`;
-      }
-      if (url.includes('id=')) {
-        const fileId = url.split('id=')[1]?.split('&')[0];
-        return `https://drive.google.com/file/d/${fileId}/preview`;
-      }
+    const googleEmbed = buildDocumentEmbedUrl(url);
+    if (googleEmbed) {
+      return googleEmbed;
     }
 
     return url;
@@ -256,6 +251,21 @@ const CourseSections = ({ courseId, isEnrolled = false }: CourseSectionsProps) =
         return '';
       }
     };
+
+    if (content.type === 'image') {
+      const imageSource = assessmentPictureSources(content.content_url)[0];
+      if (!imageSource) {
+        return null;
+      }
+      return (
+        <img
+          src={imageSource}
+          alt={content.title}
+          referrerPolicy="no-referrer"
+          className="max-h-96 w-full rounded-lg object-contain"
+        />
+      );
+    }
 
     const extension = getFileExtension(content.content_url);
     const documentExtensions = ['pdf', 'ppt', 'pptx', 'doc', 'docx'];

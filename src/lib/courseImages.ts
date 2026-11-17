@@ -1,3 +1,5 @@
+import { assessmentPictureSources } from './courseAttachmentLink.ts';
+
 const courseImageByTitlePrefix: { titlePrefix: string; imageUrl: string }[] = [
   { titlePrefix: 'art & craft', imageUrl: '/course-images/art-and-craft.jpg' },
   { titlePrefix: 'spoken english', imageUrl: '/course-images/spoken-english.png' },
@@ -26,8 +28,9 @@ export function resolveCourseImageUrl(
   imageUrl: string | null | undefined,
 ): string | null {
   const storedImageUrl = imageUrl?.trim() ?? '';
-  if (storedImageUrl && hasDisplayableImage(storedImageUrl)) {
-    return storedImageUrl;
+  const displayImageUrl = assessmentPictureSources(storedImageUrl)[0] ?? '';
+  if (displayImageUrl && hasDisplayableImage(displayImageUrl)) {
+    return displayImageUrl;
   }
 
   const normalizedTitle = title?.trim().toLowerCase() ?? '';

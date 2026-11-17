@@ -142,7 +142,19 @@ const Programs = () => {
             {visiblePrograms.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {visiblePrograms.map(program => (
-                  <Card key={program.id} className="group overflow-hidden border-0 card-shadow hover:card-shadow-hover transition-all duration-300 hover-scale rounded-2xl">
+                  <Card
+                    key={program.id}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`View details for ${program.title}`}
+                    onClick={() => navigate(`/course/${program.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        navigate(`/course/${program.id}`);
+                      }
+                    }}
+                    className="group overflow-hidden border-0 card-shadow hover:card-shadow-hover transition-all duration-300 hover-scale rounded-2xl cursor-pointer"
+                  >
                     <div className="relative overflow-hidden">
                       <img
                         src={resolveCourseImageUrl(program.title, program.image_url) ?? undefined}
@@ -204,9 +216,14 @@ const Programs = () => {
                           )}
                         </div>
                       </div>
+                      <p className="text-sm font-medium text-kiki-purple-700">Available after you purchase this program.</p>
                     </CardContent>
 
-                    <CardFooter className="p-4 pt-0 flex flex-col gap-2">
+                    <CardFooter
+                      className="p-4 pt-0 flex flex-col gap-2"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
                       <Button
                         size="sm"
                         variant="outline"

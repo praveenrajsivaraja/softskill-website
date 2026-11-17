@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { assessmentPictureSources } from '@/lib/courseAttachmentLink';
 import { useToast } from '@/hooks/use-toast';
 
 interface TrustedPartner {
@@ -114,7 +115,8 @@ const TrustedPartners = () => {
               {/* Background Image */}
               <div className="aspect-[4/3] relative">
                 <img 
-                  src={partner.image_url} 
+                  src={assessmentPictureSources(partner.image_url)[0] ?? partner.image_url}
+                  referrerPolicy="no-referrer" 
                   alt={partner.title} 
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
                 />

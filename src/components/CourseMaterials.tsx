@@ -14,9 +14,12 @@ import ProgramAssessments from '@/components/ProgramAssessments';
 interface CourseMaterialsProps {
   courseId: string;
   documents: CourseMaterial[];
+  canUsePurchasedActions: boolean;
 }
 
-const CourseMaterials = ({ courseId, documents }: CourseMaterialsProps) => {
+const documentPurchaseMessage = 'Purchase to open and download this document.';
+
+const CourseMaterials = ({ courseId, documents, canUsePurchasedActions }: CourseMaterialsProps) => {
   const [openDocument, setOpenDocument] = useState<CourseMaterial | null>(null);
   const [failedPreviews, setFailedPreviews] = useState<Set<string>>(new Set());
   const monthGroups = groupDocumentsByMonth(documents);
@@ -28,7 +31,7 @@ const CourseMaterials = ({ courseId, documents }: CourseMaterialsProps) => {
       <section id="materials" className="container mx-auto px-4 pt-8 scroll-mt-24">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Course materials</h2>
         <p className="text-gray-600">Documents for this course will appear here, grouped by month.</p>
-        <ProgramAssessments courseId={courseId} />
+        <ProgramAssessments courseId={courseId} canStart={canUsePurchasedActions} />
       </section>
     );
   }
@@ -47,33 +50,45 @@ const CourseMaterials = ({ courseId, documents }: CourseMaterialsProps) => {
                   : buildDocumentPreviewImageUrl(document.driveUrl, document.previewImageUrl);
                 const documentDownloadUrl = buildAttachmentDownloadUrl(document.driveUrl);
 
+                const preview = (
+                  <>
+                    <div className="aspect-[4/3] bg-kiki-purple-50 flex items-center justify-center">
+                      {previewUrl ? (
+                        <img
+                          src={previewUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          onError={() => {
+                            setFailedPreviews((current) => new Set(current).add(document.id));
+                          }}
+                        />
+                      ) : (
+                        <FileText className="h-12 w-12 text-kiki-purple-400" />
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-semibold text-gray-900">{document.title}</h4>
+                      <p className="text-sm text-kiki-purple-600 mt-1">
+                        {canUsePurchasedActions ? 'Open document' : documentPurchaseMessage}
+                      </p>
+                    </div>
+                  </>
+                );
+
                 return (
                   <article key={document.id} className="overflow-hidden rounded-xl border bg-white shadow-sm">
-                    <button
-                      type="button"
-                      className="block w-full text-left"
-                      onClick={() => setOpenDocument(document)}
-                    >
-                      <div className="aspect-[4/3] bg-kiki-purple-50 flex items-center justify-center">
-                        {previewUrl ? (
-                          <img
-                            src={previewUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            onError={() => {
-                              setFailedPreviews((current) => new Set(current).add(document.id));
-                            }}
-                          />
-                        ) : (
-                          <FileText className="h-12 w-12 text-kiki-purple-400" />
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h4 className="font-semibold text-gray-900">{document.title}</h4>
-                        <p className="text-sm text-kiki-purple-600 mt-1">Open document</p>
-                      </div>
-                    </button>
-                    {documentDownloadUrl && (
+                    {canUsePurchasedActions ? (
+                      <button
+                        type="button"
+                        className="block w-full text-left"
+                        onClick={() => setOpenDocument(document)}
+                      >
+                        {preview}
+                      </button>
+                    ) : (
+                      <div className="block w-full text-left">{preview}</div>
+                    )}
+                    {canUsePurchasedActions && documentDownloadUrl && (
                       <div className="px-4 pb-4">
                         <Button asChild variant="outline" size="sm">
                           <a href={documentDownloadUrl} target="_blank" rel="noopener noreferrer">
@@ -90,20 +105,21 @@ const CourseMaterials = ({ courseId, documents }: CourseMaterialsProps) => {
           </div>
         ))}
       </div>
-      <ProgramAssessments courseId={courseId} />
+      <ProgramAssessments courseId={courseId} canStart={canUsePurchasedActions} />
 
       <Dialog open={openDocument !== null} onOpenChange={(isOpen) => { if (!isOpen) setOpenDocument(null); }}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{openDocument?.title}</DialogTitle>
           </DialogHeader>
-          {embedUrl && (
+          {canUsePurchasedActions && embedUrl && (
             <iframe
               src={embedUrl}
               title={openDocument?.title ?? 'Course document'}
               className="h-[70vh] w-full rounded-md border"
             />
           )}
+          {canUsePurchasedActions && (
           <DialogFooter className="gap-2 sm:justify-start">
             {downloadUrl && (
               <Button asChild>
@@ -121,6 +137,7 @@ const CourseMaterials = ({ courseId, documents }: CourseMaterialsProps) => {
               </Button>
             )}
           </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </section>

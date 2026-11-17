@@ -536,7 +536,7 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                               id="image_url"
                               value={formData.image_url}
                               onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                              placeholder="https://example.com/image.jpg"
+                              placeholder="https://drive.google.com/file/d/FILE_ID/view or a Google image link"
                             />
                           </div>
                           <div className="col-span-2 space-y-3">
@@ -586,7 +586,7 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                                   />
                                 </div>
                                 <div className="col-span-2">
-                                  <Label htmlFor={`document-link-${document.key}`}>Google Drive link</Label>
+                                  <Label htmlFor={`document-link-${document.key}`}>Google or Google Drive link</Label>
                                   <Input
                                     id={`document-link-${document.key}`}
                                     value={document.driveUrl}
@@ -595,7 +595,7 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                                       nextDrafts[index] = { ...document, driveUrl: event.target.value };
                                       setDocumentDrafts(nextDrafts);
                                     }}
-                                    placeholder="https://drive.google.com/file/d/FILE_ID/view"
+                                    placeholder="https://docs.google.com/... or https://drive.google.com/file/d/FILE_ID/view"
                                   />
                                 </div>
                                 <div className="col-span-2">
@@ -608,7 +608,7 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                                       nextDrafts[index] = { ...document, previewImageUrl: event.target.value };
                                       setDocumentDrafts(nextDrafts);
                                     }}
-                                    placeholder="Optional https image. A Drive preview is used when this is blank."
+                                    placeholder="Optional Google or Google Drive image link. A Drive preview is used when this is blank."
                                   />
                                 </div>
                                 {documentDrafts.length > 1 && (
