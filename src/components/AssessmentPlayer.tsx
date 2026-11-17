@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { LearnerAssessmentQuestion } from '@/lib/assessmentApi';
 import type { AssessmentAttemptSummary } from '@/lib/assessmentApi';
+import { assessmentPictureSources } from '@/lib/courseAttachmentLink';
+import { nextUnansweredQuestionIndex, unansweredQuestionCount } from '@/lib/assessmentNavigation';
 
 interface AssessmentPlayerProps {
   title: string;
@@ -30,6 +32,47 @@ const speakRecording = (script: string) => {
   window.speechSynthesis.speak(recording);
 };
 
+const PicturePrompt = ({ question }: { question: LearnerAssessmentQuestion }) => {
+  const sources = assessmentPictureSources(question.pictureUrl);
+  const [sourceIndex, setSourceIndex] = useState(0);
+
+  useEffect(() => {
+    setSourceIndex(0);
+  }, [question.id, question.pictureUrl]);
+
+  if (sources.length === 0) {
+    if (!question.pictureText) {
+      return null;
+    }
+    return (
+      <div className="mt-4 overflow-hidden rounded-2xl border border-dashed border-kiki-purple-200 bg-kiki-purple-50">
+        <p className="p-4 text-sm text-gray-700">{question.pictureText}</p>
+      </div>
+    );
+  }
+
+  const pictureFailed = sourceIndex >= sources.length;
+  return (
+    <div className="mt-4 rounded-3xl bg-gradient-to-b from-sky-50 to-kiki-purple-50 p-4">
+      <p className="text-center text-xs font-semibold uppercase tracking-wide text-kiki-purple-700">Look at the picture</p>
+      {pictureFailed ? (
+        <p className="mt-3 text-center text-sm text-gray-600">
+          The picture did not load. If this is a Google Drive link, share the file as Anyone with the link.
+          {question.pictureText ? ` ${question.pictureText}` : ''}
+        </p>
+      ) : (
+        <img
+          src={sources[sourceIndex]}
+          alt={question.pictureText || 'Illustration for this question'}
+          referrerPolicy="no-referrer"
+          className="mx-auto mt-3 h-56 w-full max-w-md object-contain sm:h-64"
+          onError={() => setSourceIndex((current) => current + 1)}
+        />
+      )}
+    </div>
+  );
+};
+
 const formatRemaining = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
@@ -48,7 +91,7 @@ const AssessmentPlayer = ({
 }: AssessmentPlayerProps) => {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [feedback, setFeedback] = useState<{ correct: boolean; message: string } | null>(null);
+  const [feedbackByQuestion, setFeedbackByQuestion] = useState<Record<string, { correct: boolean; message: string }>>({});
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<AssessmentAttemptSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,8 +102,12 @@ const AssessmentPlayer = ({
   const submittedRef = useRef(false);
   answersRef.current = answers;
   const question = questions[index];
-  const progress = questions.length === 0 ? 0 : Math.round((index / questions.length) * 100);
+  const questionIds = questions.map((item) => item.id);
+  const skippedCount = unansweredQuestionCount(answers, questionIds);
+  const progress = questions.length === 0 ? 0 : Math.round(((questions.length - skippedCount) / questions.length) * 100);
   const response = question ? answers[question.id] ?? '' : '';
+  const feedback = question ? feedbackByQuestion[question.id] ?? null : null;
+  const nextSkippedIndex = nextUnansweredQuestionIndex(answers, questionIds, index);
   const showSectionIntro = Boolean(question) && (index === 0 || questions[index - 1].sectionTitle !== question.sectionTitle);
 
   const finish = async (currentAnswers: Record<string, string>) => {
@@ -114,10 +161,13 @@ const AssessmentPlayer = ({
       try {
         const correct = await onCheck(question.id, response);
         const messages = correct ? praise : nudge;
-        setFeedback({
-          correct,
-          message: messages[index % messages.length],
-        });
+        setFeedbackByQuestion((current) => ({
+          ...current,
+          [question.id]: {
+            correct,
+            message: messages[index % messages.length],
+          },
+        }));
       } catch (checkError) {
         setError(checkError instanceof Error ? checkError.message : 'Could not check that answer.');
       } finally {
@@ -127,12 +177,32 @@ const AssessmentPlayer = ({
     }
 
     if (index < questions.length - 1) {
-      setFeedback(null);
+      setError(null);
       setIndex(index + 1);
       return;
     }
 
+    if (nextSkippedIndex >= 0) {
+      setError(null);
+      setIndex(nextSkippedIndex);
+      return;
+    }
+
     await finish(answers);
+  };
+
+  const skipQuestion = () => {
+    if (feedback || checking) {
+      return;
+    }
+    setError(null);
+    if (index < questions.length - 1) {
+      setIndex(index + 1);
+      return;
+    }
+    if (nextSkippedIndex >= 0) {
+      setIndex(nextSkippedIndex);
+    }
   };
 
   if (questions.length === 0) {
@@ -184,6 +254,7 @@ const AssessmentPlayer = ({
         <button type="button" className="text-sm font-medium text-gray-500" onClick={onExit}>Exit</button>
         <p className="text-sm font-semibold text-gray-700">
           {index + 1} / {questions.length}
+          {skippedCount > 0 ? ` · ${skippedCount} skipped` : ''}
           {secondsLeft !== null ? ` · ${formatRemaining(secondsLeft)}` : ''}
         </p>
       </div>
@@ -202,21 +273,7 @@ const AssessmentPlayer = ({
             <p className="mt-2 text-sm leading-6 text-gray-700">{question.passage}</p>
           </div>
         )}
-        {question.pictureUrl && (
-          <div className="mt-4 rounded-3xl bg-gradient-to-b from-sky-50 to-kiki-purple-50 p-4">
-            <p className="text-center text-xs font-semibold uppercase tracking-wide text-kiki-purple-700">Look at the picture</p>
-            <img
-              src={question.pictureUrl}
-              alt={question.pictureText || 'Illustration for this question'}
-              className="mx-auto mt-3 h-56 w-full max-w-md object-contain sm:h-64"
-            />
-          </div>
-        )}
-        {!question.pictureUrl && question.pictureText && (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-dashed border-kiki-purple-200 bg-kiki-purple-50">
-            <p className="p-4 text-sm text-gray-700">{question.pictureText}</p>
-          </div>
-        )}
+        <PicturePrompt question={question} />
         <h2 className="mt-5 text-xl font-bold leading-snug text-gray-900">{question.prompt}</h2>
         {question.kind === 'listening' && question.listeningScript && (
           <Button type="button" variant="outline" className="mt-4" onClick={() => speakRecording(question.listeningScript ?? '')}>
@@ -251,21 +308,59 @@ const AssessmentPlayer = ({
         {(question.kind === 'order' || question.kind === 'written') && (
           <Textarea className="mt-5 text-base" rows={question.kind === 'written' ? 5 : 3} value={response} onChange={(event) => setResponse(event.target.value)} placeholder={question.kind === 'order' ? 'Write the sentence' : question.pictureUrl ? 'Write one sentence about the picture' : 'Write your answer'} />
         )}
+        <Button
+          className="mt-6 h-12 w-full text-base"
+          disabled={checking || (showFeedback && onCheck && !feedback && !response.trim()) || (!showFeedback && !response.trim() && (index < questions.length - 1 || nextSkippedIndex < 0))}
+          onClick={() => void advance()}
+        >
+          {checking
+            ? 'Checking…'
+            : showFeedback && onCheck && !feedback
+              ? 'Check'
+              : index === questions.length - 1 && nextSkippedIndex >= 0
+                ? 'Go to skipped'
+                : index === questions.length - 1
+                  ? 'Finish'
+                  : 'Continue'}
+        </Button>
         {feedback && (
-          <div className={`mt-5 flex items-start gap-3 rounded-2xl p-4 ${feedback.correct ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>
+          <div className={`mt-4 flex items-start gap-3 rounded-2xl p-4 ${feedback.correct ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>
             {feedback.correct ? <CheckCircle2 className="mt-0.5 h-5 w-5" /> : <XCircle className="mt-0.5 h-5 w-5" />}
             <p className="font-medium">{feedback.message}</p>
           </div>
         )}
         {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
-        {!showFeedback && index > 0 && (
-          <Button type="button" variant="outline" className="mt-6 h-12 w-full text-base" onClick={() => setIndex(index - 1)}>
-            Previous
-          </Button>
-        )}
-        <Button className={`${!showFeedback && index > 0 ? 'mt-3' : 'mt-6'} h-12 w-full text-base`} disabled={!response.trim() || checking} onClick={() => void advance()}>
-          {checking ? 'Checking…' : showFeedback && onCheck && !feedback ? 'Check' : index === questions.length - 1 ? 'Finish' : 'Continue'}
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-3 h-12 w-full text-base"
+          disabled={checking || Boolean(feedback) || (index === questions.length - 1 && nextSkippedIndex < 0)}
+          onClick={skipQuestion}
+        >
+          Skip
         </Button>
+        <div className="mt-5">
+          <p className="text-sm font-medium text-gray-700">
+            {skippedCount === 0 ? 'Every question has an answer.' : 'Skipped questions'}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {questions.map((item, itemIndex) => {
+              const answered = Boolean((answers[item.id] ?? '').trim());
+              const isCurrent = itemIndex === index;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => { setError(null); setIndex(itemIndex); }}
+                  aria-label={`Question ${itemIndex + 1}${answered ? ', answered' : ', skipped'}`}
+                  className={`h-9 min-w-9 rounded-full border px-2 text-sm font-semibold ${isCurrent ? 'border-kiki-purple-600 bg-kiki-purple-600 text-white' : answered ? 'border-green-200 bg-green-50 text-green-800' : 'border-amber-300 bg-amber-50 text-amber-900'}`}
+                >
+                  {itemIndex + 1}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
       <p className="mt-4 text-center text-sm text-gray-500">{title}</p>
     </div>

@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildAttachmentDownloadUrl,
   buildDocumentEmbedUrl,
+  assessmentPictureSources,
   buildDocumentPreviewImageUrl,
   chooseCourseAttachments,
   groupDocumentsByMonth,
@@ -29,6 +30,22 @@ test('documents are grouped by month and a custom preview image is preferred', (
     buildDocumentEmbedUrl('https://drive.google.com/file/d/abc_DEF-123/view?usp=drive_link'),
     'https://drive.google.com/file/d/abc_DEF-123/preview',
   );
+  assert.deepEqual(
+    assessmentPictureSources('https://drive.google.com/file/d/abc_DEF-123/view?usp=sharing'),
+    [
+      'https://lh3.googleusercontent.com/d/abc_DEF-123',
+      'https://drive.google.com/thumbnail?id=abc_DEF-123&sz=w1000',
+    ],
+  );
+  assert.deepEqual(
+    assessmentPictureSources('https://drive.google.com/open?id=abc_DEF-123'),
+    [
+      'https://lh3.googleusercontent.com/d/abc_DEF-123',
+      'https://drive.google.com/thumbnail?id=abc_DEF-123&sz=w1000',
+    ],
+  );
+  assert.deepEqual(assessmentPictureSources('/assessment-pictures/meeting.svg'), ['/assessment-pictures/meeting.svg']);
+  assert.deepEqual(assessmentPictureSources(''), []);
 });
 
 test('an enrolled course still gets the Drive link stored on the course when the protected table is empty', () => {

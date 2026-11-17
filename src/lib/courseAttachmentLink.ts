@@ -114,6 +114,28 @@ const readDriveFileFromText = (value: string) => {
   return readDriveFile(url);
 };
 
+export const assessmentPictureSources = (pictureUrl: string | null | undefined): string[] => {
+  const trimmedUrl = pictureUrl?.trim() ?? '';
+  if (!trimmedUrl) {
+    return [];
+  }
+
+  const driveFile = readDriveFileFromText(trimmedUrl);
+  if (!driveFile) {
+    return [trimmedUrl];
+  }
+
+  const thumbnail = `https://drive.google.com/thumbnail?id=${driveFile.id}&sz=w1000`;
+  if (driveFile.kind !== 'file') {
+    return [thumbnail];
+  }
+
+  return [
+    `https://lh3.googleusercontent.com/d/${driveFile.id}`,
+    thumbnail,
+  ];
+};
+
 export const buildDocumentPreviewImageUrl = (
   driveUrl: string,
   previewImageUrl?: string | null,

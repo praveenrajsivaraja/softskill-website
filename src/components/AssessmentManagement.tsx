@@ -424,8 +424,8 @@ const AssessmentManagement = () => {
                 </div>
                 <div className="md:col-span-2">
                   <Label>Picture URL</Label>
-                  <Input value={question.pictureUrl} onChange={(event) => updateQuestion(question.key, { pictureUrl: event.target.value })} placeholder="/assessment-pictures/teamwork.svg" />
-                  <p className="mt-1 text-xs text-gray-500">When a picture link is set, learners see the illustration first and answer from it. The description stays as the image text and is not shown as the question.</p>
+                  <Input value={question.pictureUrl} onChange={(event) => updateQuestion(question.key, { pictureUrl: event.target.value })} placeholder="https://drive.google.com/file/d/FILE_ID/view" />
+                  <p className="mt-1 text-xs text-gray-500">Paste a Google Drive image link or a direct image address. Share the Drive file as Anyone with the link, or the picture stays blank.</p>
                 </div>
                 <div>
                   <Label>Passage title</Label>
