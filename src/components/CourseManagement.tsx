@@ -24,6 +24,7 @@ import {
   type CourseDocumentDraft,
 } from '@/lib/courseDocuments';
 import { importCourses } from '@/lib/adminSheetImport';
+import { courseDeleteErrorMessage, deleteAdminCourse } from '@/lib/adminCourseDelete';
 import { careerTestSheetSample, courseSheetHeaders, courseSheetSample } from '@/lib/sheetTemplates';
 import AdminSheetMenu from '@/components/AdminSheetMenu';
 
@@ -231,19 +232,23 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
     if (!confirm('Are you sure you want to delete this course?')) return;
 
     try {
-      const { error } = await supabase
-        .from('courses')
-        .delete()
-        .eq('id', courseId);
-
-      if (error) throw error;
+      await deleteAdminCourse(supabase, courseId);
       toast({ title: "Success", description: "Course deleted successfully." });
       fetchCourses();
     } catch (error) {
-      console.error('Error deleting course:', error);
+      const message = error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+          ? error.message
+          : 'unknown';
+      console.error(JSON.stringify({
+        event: 'course_delete_failed',
+        courseId,
+        message,
+      }));
       toast({
         title: "Error",
-        description: "Failed to delete course.",
+        description: courseDeleteErrorMessage(error),
         variant: "destructive",
       });
     }

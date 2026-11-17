@@ -1059,6 +1059,10 @@ export type Database = {
         Args: { target_assessment_id: string; responses: Json }
         Returns: Json
       }
+      admin_delete_course: {
+        Args: { target_course_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       course_status: "active" | "inactive" | "archived"
