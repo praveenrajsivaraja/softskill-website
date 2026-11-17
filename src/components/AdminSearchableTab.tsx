@@ -1,22 +1,20 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 
 interface AdminSearchableTabProps {
   children: React.ReactNode;
+  searchTerm: string;
   onSearch: (searchTerm: string) => void;
   placeholder?: string;
 }
 
-const AdminSearchableTab = ({ children, onSearch, placeholder = "Search..." }: AdminSearchableTabProps) => {
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const handleSearchChange = (value: string) => {
-    setSearchTerm(value);
-    onSearch(value);
-  };
-
+const AdminSearchableTab = ({
+  children,
+  searchTerm,
+  onSearch,
+  placeholder = 'Search...',
+}: AdminSearchableTabProps) => {
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -24,7 +22,7 @@ const AdminSearchableTab = ({ children, onSearch, placeholder = "Search..." }: A
         <Input
           placeholder={placeholder}
           value={searchTerm}
-          onChange={(e) => handleSearchChange(e.target.value)}
+          onChange={(event) => onSearch(event.target.value)}
           className="pl-10"
         />
       </div>

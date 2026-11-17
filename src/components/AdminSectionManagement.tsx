@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { BookOpen, Plus, Edit, Trash2, GripVertical, Link, Video, FileText, Image } from 'lucide-react';
 import AdminSearchableTab from './AdminSearchableTab';
+import { filterRecordsBySearch } from '@/lib/adminSearch';
 import { isGoogleDriveAttachmentUrl } from '@/lib/courseAttachmentLink';
 
 interface Course {
@@ -48,7 +49,7 @@ interface SectionWithContents extends Section {
 
 const AdminSectionManagement = () => {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+  const [courseSearch, setCourseSearch] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [sections, setSections] = useState<SectionWithContents[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,22 +84,13 @@ const AdminSectionManagement = () => {
     }
   }, [selectedCourse]);
 
-  useEffect(() => {
-    setFilteredCourses(courses);
-  }, [courses]);
-
-  const handleSearch = (searchTerm: string) => {
-    if (!searchTerm.trim()) {
-      setFilteredCourses(courses);
-      return;
-    }
-    
-    const filtered = courses.filter(course =>
-      course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredCourses(filtered);
-  };
+  const filteredCourses = useMemo(
+    () => filterRecordsBySearch(courses, courseSearch, (course) => [
+      course.title,
+      course.description,
+    ]),
+    [courses, courseSearch],
+  );
 
   const fetchCourses = async () => {
     try {
@@ -450,8 +442,9 @@ const AdminSectionManagement = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <AdminSearchableTab 
-          onSearch={handleSearch}
+        <AdminSearchableTab
+          searchTerm={courseSearch}
+          onSearch={setCourseSearch}
           placeholder="Search courses..."
         >
           <div className="space-y-4">

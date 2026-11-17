@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { BookOpen, Plus, Edit, Trash2, Users, Settings } from 'lucide-react';
 import AdminSearchableTab from './AdminSearchableTab';
+import { filterRecordsBySearch } from '@/lib/adminSearch';
 import AdminSectionManagement from './AdminSectionManagement';
 import { COURSE_TYPE_CAREER_TEST, COURSE_TYPE_COURSE, linesToList, listToLines } from '@/lib/courseCatalog';
 import { fetchPaidCourseAttachments } from '@/lib/courseAttachment';
@@ -73,7 +74,7 @@ const emptyCourseForm = {
 
 const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+  const [courseSearch, setCourseSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -91,31 +92,19 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
     fetchCourses();
   }, []);
 
-  const matchesCatalog = (course: Course) => {
-    if (catalog === 'career_test') return course.course_type === COURSE_TYPE_CAREER_TEST;
-    if (catalog === 'course') return course.course_type !== COURSE_TYPE_CAREER_TEST;
-    return true;
-  };
+  const filteredCourses = useMemo(() => {
+    const catalogCourses = courses.filter((course) => {
+      if (catalog === 'career_test') return course.course_type === COURSE_TYPE_CAREER_TEST;
+      if (catalog === 'course') return course.course_type !== COURSE_TYPE_CAREER_TEST;
+      return true;
+    });
 
-  useEffect(() => {
-    setFilteredCourses(courses.filter(matchesCatalog));
-  }, [courses, catalog]);
-
-  const handleSearch = (searchTerm: string) => {
-    if (!searchTerm.trim()) {
-      setFilteredCourses(courses.filter(matchesCatalog));
-      return;
-    }
-    
-    const filtered = courses.filter(course =>
-      matchesCatalog(course) && (
-        course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.category?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
-    setFilteredCourses(filtered);
-  };
+    return filterRecordsBySearch(catalogCourses, courseSearch, (course) => [
+      course.title,
+      course.description,
+      course.category,
+    ]);
+  }, [courses, catalog, courseSearch]);
 
   const fetchCourses = async () => {
     try {
@@ -360,8 +349,9 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
             </TabsList>
 
             <TabsContent value="courses">
-              <AdminSearchableTab 
-                onSearch={handleSearch}
+              <AdminSearchableTab
+                searchTerm={courseSearch}
+                onSearch={setCourseSearch}
                 placeholder="Search courses..."
               >
                 <div className="space-y-4">

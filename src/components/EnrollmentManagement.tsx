@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { UserCheck, Calendar, BookOpen, RefreshCw, RotateCcw, UserPlus, Trash2, Loader2 } from 'lucide-react';
 import PaymentScreenshotViewer from './PaymentScreenshotViewer';
 import AdminSearchableTab from './AdminSearchableTab';
+import { filterRecordsBySearch } from '@/lib/adminSearch';
 import ManualEnrollmentDialog from './ManualEnrollmentDialog';
 
 interface Enrollment {
@@ -53,9 +54,9 @@ interface Order {
 
 const EnrollmentManagement = () => {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [filteredEnrollments, setFilteredEnrollments] = useState<Enrollment[]>([]);
+  const [enrollmentSearch, setEnrollmentSearch] = useState('');
   const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [orderSearch, setOrderSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'enrollments' | 'requests'>('requests');
   const [showManualEnrollmentDialog, setShowManualEnrollmentDialog] = useState(false);
@@ -66,43 +67,23 @@ const EnrollmentManagement = () => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    setFilteredEnrollments(enrollments);
-  }, [enrollments]);
+  const filteredEnrollments = useMemo(
+    () => filterRecordsBySearch(enrollments, enrollmentSearch, (enrollment) => [
+      enrollment.student?.full_name,
+      enrollment.student?.email,
+      enrollment.course?.title,
+    ]),
+    [enrollments, enrollmentSearch],
+  );
 
-  useEffect(() => {
-    setFilteredOrders(pendingOrders);
-  }, [pendingOrders]);
-
-  const handleEnrollmentSearch = (searchTerm: string) => {
-    if (!searchTerm.trim()) {
-      setFilteredEnrollments(enrollments);
-      return;
-    }
-    
-    const filtered = enrollments.filter(enrollment =>
-      enrollment.student?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      enrollment.student?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      enrollment.course?.title?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredEnrollments(filtered);
-  };
-
-  const handleOrderSearch = (searchTerm: string) => {
-    if (!searchTerm.trim()) {
-      setFilteredOrders(pendingOrders);
-      return;
-    }
-    
-    const filtered = pendingOrders.filter(order =>
-      order.user_profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.user_profile?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.order_items.some(item => 
-        item.course.title.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
-    setFilteredOrders(filtered);
-  };
+  const filteredOrders = useMemo(
+    () => filterRecordsBySearch(pendingOrders, orderSearch, (order) => [
+      order.user_profile?.full_name,
+      order.user_profile?.email,
+      ...order.order_items.map((item) => item.course.title),
+    ]),
+    [pendingOrders, orderSearch],
+  );
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -625,8 +606,9 @@ const EnrollmentManagement = () => {
         </CardHeader>
         <CardContent>
           {activeTab === 'requests' ? (
-            <AdminSearchableTab 
-              onSearch={handleOrderSearch}
+            <AdminSearchableTab
+              searchTerm={orderSearch}
+              onSearch={setOrderSearch}
               placeholder="Search by student name, email, or course..."
             >
               <div className="rounded-md border">
@@ -707,8 +689,9 @@ const EnrollmentManagement = () => {
               </div>
             </AdminSearchableTab>
           ) : (
-            <AdminSearchableTab 
-              onSearch={handleEnrollmentSearch}
+            <AdminSearchableTab
+              searchTerm={enrollmentSearch}
+              onSearch={setEnrollmentSearch}
               placeholder="Search by student name, email, or course..."
             >
               <div className="rounded-md border">

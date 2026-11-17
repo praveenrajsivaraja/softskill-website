@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,7 @@ import AdminSheetMenu from '@/components/AdminSheetMenu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Trash2, Loader2, RefreshCw } from 'lucide-react';
 import AdminSearchableTab from '@/components/AdminSearchableTab';
+import { filterRecordsBySearch } from '@/lib/adminSearch';
 
 type UserRole = 'student' | 'instructor' | 'admin';
 
@@ -36,7 +37,7 @@ interface User {
 
 const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [userSearch, setUserSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -52,9 +53,14 @@ const UserManagement = () => {
     fetchUsers();
   }, []);
 
-  useEffect(() => {
-    setFilteredUsers(users);
-  }, [users]);
+  const filteredUsers = useMemo(
+    () => filterRecordsBySearch(users, userSearch, (user) => [
+      user.full_name,
+      user.email,
+      user.role,
+    ]),
+    [users, userSearch],
+  );
 
   const fetchUsers = async () => {
     try {
@@ -95,20 +101,6 @@ const UserManagement = () => {
       title: "Success",
       description: "User list refreshed successfully.",
     });
-  };
-
-  const handleUserSearch = (searchTerm: string) => {
-    if (!searchTerm.trim()) {
-      setFilteredUsers(users);
-      return;
-    }
-    
-    const filtered = users.filter(user =>
-      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredUsers(filtered);
   };
 
   const updateUserRole = async (userId: string, nextRole: UserRole) => {
@@ -353,8 +345,9 @@ const UserManagement = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <AdminSearchableTab 
-          onSearch={handleUserSearch}
+        <AdminSearchableTab
+          searchTerm={userSearch}
+          onSearch={setUserSearch}
           placeholder="Search by name, email, or role..."
         >
           <Table>
