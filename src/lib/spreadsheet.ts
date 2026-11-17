@@ -87,6 +87,10 @@ export const pipeList = (value: string | undefined): string[] => {
   return (value ?? '').split('|').map((item) => item.trim()).filter(Boolean);
 };
 
+export const lineOrPipeList = (value: string | undefined): string[] => {
+  return (value ?? '').split(/\r?\n|\|/).map((item) => item.trim()).filter(Boolean);
+};
+
 const escapeCsvCell = (value: string): string => {
   if (/[",\n]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;

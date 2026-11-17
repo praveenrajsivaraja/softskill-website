@@ -227,6 +227,7 @@ export const importCourses = async (
       course_type: courseType,
       highlights: fields.highlights,
       learning_points: fields.learningPoints,
+      image_url: fields.imageUrl,
       updated_at: new Date().toISOString(),
     };
 

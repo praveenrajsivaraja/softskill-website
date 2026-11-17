@@ -5,7 +5,7 @@ import {
   type AssessmentQuestionKind,
   type AssessmentQuestionPayload,
 } from './assessmentModel.ts';
-import { missingSheetColumns, pipeList, readBoolean } from './spreadsheet.ts';
+import { lineOrPipeList, missingSheetColumns, pipeList, readBoolean } from './spreadsheet.ts';
 
 export interface CourseSheetFields {
   title: string;
@@ -20,6 +20,7 @@ export interface CourseSheetFields {
   totalLessons: number;
   highlights: string[];
   learningPoints: string[];
+  imageUrl: string | null;
 }
 
 const courseStatuses = ['active', 'inactive', 'archived'] as const;
@@ -76,8 +77,9 @@ export const courseFieldsFromRow = (row: Record<string, string>, line: number): 
     mode: emptyToNull(row.mode),
     status,
     totalLessons,
-    highlights: pipeList(row.highlights),
-    learningPoints: pipeList(row.learning_points),
+    highlights: lineOrPipeList(row.highlights),
+    learningPoints: lineOrPipeList(row.learning_points),
+    imageUrl: emptyToNull(row.image_url),
   };
 };
 
@@ -170,11 +172,7 @@ export const groupAssessmentRows = (
 
   const groups: AssessmentSheetGroup[] = [];
   for (const entry of grouped.values()) {
-    const sorted = [...entry.rows].sort((left, right) => {
-      const leftOrder = Number((left.row.sort_order ?? '').trim() || left.line);
-      const rightOrder = Number((right.row.sort_order ?? '').trim() || right.line);
-      return leftOrder - rightOrder;
-    });
+    const sorted = [...entry.rows].sort((left, right) => left.line - right.line);
     const first = sorted[0];
     const durationMinutes = readWholeNumber(first.row.duration_minutes, 30);
     const passingScore = readWholeNumber(first.row.passing_score, 70);

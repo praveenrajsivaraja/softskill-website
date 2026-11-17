@@ -1,7 +1,7 @@
-export const userSheetHeaders = ['email', 'full_name', 'password', 'role', 'is_active'];
+export const userSheetHeaders = ['email', 'full_name', 'password', 'role'];
 
 export const userSheetSample = [
-  ['new.student@example.com', 'New Student', 'Welcome123', 'student', 'true'],
+  ['new.student@example.com', 'New Student', 'Welcome123', 'student'],
 ];
 
 export const courseSheetHeaders = [
@@ -17,6 +17,7 @@ export const courseSheetHeaders = [
   'total_lessons',
   'highlights',
   'learning_points',
+  'image_url',
 ];
 
 export const courseSheetSample = [
@@ -33,6 +34,7 @@ export const courseSheetSample = [
     '8',
     'Live practice | Weekly feedback',
     'Introduce yourself | Ask simple questions',
+    'https://example.com/spoken-english.jpg',
   ],
 ];
 
@@ -50,6 +52,7 @@ export const careerTestSheetSample = [
     '1',
     'Instant result | No class time',
     'See suggested programs | Review strengths',
+    '',
   ],
 ];
 
@@ -70,7 +73,6 @@ export const assessmentSheetHeaders = [
   'prompt',
   'kind',
   'marks',
-  'sort_order',
   'picture_text',
   'picture_url',
   'passage_title',
@@ -110,7 +112,6 @@ export const assessmentSheetSample = [
     'Which word means hello?',
     'choice',
     '1',
-    '1',
     '',
     '',
     '',
@@ -148,7 +149,6 @@ export const assessmentSheetSample = [
     'I ___ a student.',
     'blank',
     '1',
-    '2',
     '',
     '',
     '',
@@ -171,9 +171,9 @@ export const assessmentSheetSample = [
   ],
 ];
 
-export const careerSectionSheetHeaders = ['section_key', 'title', 'description', 'order_index', 'is_active'];
+export const careerSectionSheetHeaders = ['section_key', 'title', 'description', 'order_index'];
 
 export const careerSectionSheetSample = [
-  ['hero', 'Find your path', 'A short introduction for the career test page.', '0', 'true'],
-  ['feature', 'Clear questions', 'Learners answer a short set of questions.', '1', 'true'],
+  ['hero', 'Find your path', 'A short introduction for the career test page.', '0'],
+  ['feature', 'Clear questions', 'Learners answer a short set of questions.', '1'],
 ];
