@@ -20,6 +20,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Trash2, Loader2, RefreshCw } from 'lucide-react';
 import AdminSearchableTab from '@/components/AdminSearchableTab';
 import { filterRecordsBySearch } from '@/lib/adminSearch';
+import {
+  enrollmentExpiresAt,
+  summarizeUserLearning,
+  type EnrollmentRecord,
+  type UserLearningSummary,
+} from '@/lib/userLearningSummary';
 
 type UserRole = 'student' | 'instructor' | 'admin';
 
@@ -29,11 +35,47 @@ interface User {
   id: string;
   email: string;
   full_name: string | null;
+  phone: string | null;
   role: UserRole | null;
   is_active: boolean;
   created_at: string;
   avatar_url: string | null;
+  lastSignInAt: string | null;
+  learning: UserLearningSummary;
+  enrollments: EnrollmentRecord[];
 }
+
+const formatDate = (value: string | null) => {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const formatDateTime = (value: string | null) => {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return date.toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
+
+const readCourse = (
+  course: { title: string | null; duration: string | null } | { title: string | null; duration: string | null }[] | null,
+) => (Array.isArray(course) ? course[0] ?? null : course);
 
 const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -43,6 +85,8 @@ const UserManagement = () => {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
   const [updatingStatusUserId, setUpdatingStatusUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [canReadLastLogin, setCanReadLastLogin] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', full_name: '', password: '', role: 'student' as UserRole });
@@ -57,7 +101,10 @@ const UserManagement = () => {
     () => filterRecordsBySearch(users, userSearch, (user) => [
       user.full_name,
       user.email,
+      user.phone,
       user.role,
+      user.learning.recentCourseTitle,
+      ...user.learning.currentTitles,
     ]),
     [users, userSearch],
   );
@@ -65,13 +112,20 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [profileResult, enrollmentResult, signInResult] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('enrollments')
+          .select('id, student_id, status, progress, enrolled_at, completed_at, courses(title, duration)'),
+        supabase.rpc('admin_user_sign_ins'),
+      ]);
 
-      if (error) {
-        console.error('Error fetching users:', error);
+      if (profileResult.error) {
+        console.error(JSON.stringify({
+          event: 'admin_user_list_failed',
+          code: profileResult.error.code,
+          message: profileResult.error.message,
+        }));
         toast({
           title: "Error",
           description: "Failed to fetch users.",
@@ -80,7 +134,71 @@ const UserManagement = () => {
         return;
       }
 
-      setUsers(data || []);
+      if (enrollmentResult.error) {
+        console.error(JSON.stringify({
+          event: 'admin_user_enrollment_lookup_failed',
+          code: enrollmentResult.error.code,
+          message: enrollmentResult.error.message,
+        }));
+        toast({
+          title: "Enrollments",
+          description: "User accounts loaded, but their courses could not be loaded.",
+          variant: "destructive",
+        });
+      }
+
+      const signInsByUserId = new Map<string, string | null>();
+      if (signInResult.error) {
+        setCanReadLastLogin(false);
+        console.error(JSON.stringify({
+          event: 'admin_user_sign_in_lookup_failed',
+          code: signInResult.error.code,
+          message: signInResult.error.message,
+        }));
+      } else {
+        setCanReadLastLogin(true);
+        for (const signIn of signInResult.data ?? []) {
+          signInsByUserId.set(signIn.user_id, signIn.last_sign_in_at);
+        }
+      }
+
+      const enrollmentsByStudent = new Map<string, EnrollmentRecord[]>();
+      for (const enrollment of enrollmentResult.data ?? []) {
+        if (!enrollment.student_id) {
+          continue;
+        }
+        const course = readCourse(enrollment.courses);
+        const record: EnrollmentRecord = {
+          id: enrollment.id,
+          courseTitle: course?.title ?? 'Untitled course',
+          duration: course?.duration ?? null,
+          status: enrollment.status,
+          progress: enrollment.progress,
+          enrolledAt: enrollment.enrolled_at,
+          completedAt: enrollment.completed_at,
+        };
+        const existing = enrollmentsByStudent.get(enrollment.student_id) ?? [];
+        existing.push(record);
+        enrollmentsByStudent.set(enrollment.student_id, existing);
+      }
+
+      const observedAt = new Date();
+      setUsers((profileResult.data ?? []).map((profile) => {
+        const enrollments = enrollmentsByStudent.get(profile.id) ?? [];
+        return {
+          id: profile.id,
+          email: profile.email,
+          full_name: profile.full_name,
+          phone: profile.phone,
+          role: profile.role,
+          is_active: profile.is_active !== false,
+          created_at: profile.created_at ?? new Date(0).toISOString(),
+          avatar_url: profile.avatar_url,
+          lastSignInAt: signInsByUserId.get(profile.id) ?? null,
+          learning: summarizeUserLearning(enrollments, observedAt),
+          enrollments,
+        };
+      }));
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -314,6 +432,7 @@ const UserManagement = () => {
             <CardTitle>User Management</CardTitle>
             <p className="mt-1 text-sm text-gray-500">
               Download the sample, add one row per person, and save it as CSV. A matching email updates that user.
+              {canReadLastLogin ? '' : ' Last login appears after the user activity SQL is applied in Supabase.'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -348,8 +467,9 @@ const UserManagement = () => {
         <AdminSearchableTab
           searchTerm={userSearch}
           onSearch={setUserSearch}
-          placeholder="Search by name, email, or role..."
+          placeholder="Search by name, email, role, or course..."
         >
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -357,7 +477,8 @@ const UserManagement = () => {
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Avatar</TableHead>
+                <TableHead>Learning</TableHead>
+                <TableHead>Last login</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -368,8 +489,26 @@ const UserManagement = () => {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <span>{user.full_name || 'N/A'}</span>
-                      {isNewSiteUser(user.created_at) && <Badge className="bg-kiki-purple-100 text-kiki-purple-800">New</Badge>}
+                      {user.avatar_url ? (
+                        <img
+                          src={user.avatar_url}
+                          alt=""
+                          className="w-8 h-8 rounded-full"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                          <span className="text-gray-600 text-sm">
+                            {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span>{user.full_name || 'N/A'}</span>
+                          {isNewSiteUser(user.created_at) && <Badge className="bg-kiki-purple-100 text-kiki-purple-800">New</Badge>}
+                        </div>
+                        {user.phone && <p className="text-xs text-gray-500">{user.phone}</p>}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -403,23 +542,51 @@ const UserManagement = () => {
                         : user.is_active === false ? 'Activate' : 'Deactivate'}
                     </Button>
                   </TableCell>
-                  <TableCell>
-                    {user.avatar_url ? (
-                      <img 
-                        src={user.avatar_url} 
-                        alt={user.full_name || 'User'} 
-                        className="w-8 h-8 rounded-full"
-                      />
+                  <TableCell className="min-w-[220px] text-sm">
+                    <p>
+                      <span className="text-gray-500">Currently enrolled: </span>
+                      {user.learning.currentTitles.length > 0
+                        ? user.learning.currentTitles.slice(0, 3).join(', ')
+                        : 'None'}
+                      {user.learning.currentTitles.length > 3 && ` +${user.learning.currentTitles.length - 3} more`}
+                    </p>
+                    {user.learning.recentCourseTitle ? (
+                      <>
+                        <p className="mt-1">
+                          <span className="text-gray-500">Recent course: </span>
+                          {user.learning.recentCourseTitle}
+                        </p>
+                        <p>
+                          <span className="text-gray-500">Enrolled: </span>
+                          {formatDate(user.learning.recentEnrolledAt)}
+                        </p>
+                        {user.learning.recentAccess === 'expired' ? (
+                          <p className="text-red-600">Expired {formatDate(user.learning.recentExpiresAt)}</p>
+                        ) : (
+                          <p>
+                            <span className="text-gray-500">Expires: </span>
+                            {user.learning.recentExpiresAt ? formatDate(user.learning.recentExpiresAt) : 'No end date'}
+                          </p>
+                        )}
+                      </>
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-                        <span className="text-gray-600 text-sm">
-                          {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
-                        </span>
-                      </div>
+                      <p className="mt-1 text-gray-500">No enrollments yet</p>
                     )}
                   </TableCell>
-                  <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {canReadLastLogin ? (user.lastSignInAt ? formatDateTime(user.lastSignInAt) : 'Never') : 'Unavailable'}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">{formatDate(user.created_at)}</TableCell>
                   <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedUserId(user.id)}
+                      >
+                        Details
+                      </Button>
                     {user.role !== 'admin' && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -456,21 +623,75 @@ const UserManagement = () => {
                         </AlertDialogContent>
                       </AlertDialog>
                     )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
               {filteredUsers.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                     No users found. {users.length === 0 && 'Try refreshing to load users.'}
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+          </div>
         </AdminSearchableTab>
       </CardContent>
     </Card>
+    <Dialog open={selectedUserId !== null} onOpenChange={(isOpen) => { if (!isOpen) setSelectedUserId(null); }}>
+      <DialogContent className="max-w-2xl">
+        {(() => {
+          const selectedUser = users.find((user) => user.id === selectedUserId);
+          if (!selectedUser) {
+            return null;
+          }
+          const history = [...selectedUser.enrollments].sort((left, right) => {
+            const leftTime = left.enrolledAt ? new Date(left.enrolledAt).getTime() : 0;
+            const rightTime = right.enrolledAt ? new Date(right.enrolledAt).getTime() : 0;
+            return rightTime - leftTime;
+          });
+          return (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedUser.full_name || selectedUser.email}</DialogTitle>
+                <DialogDescription>
+                  {selectedUser.email}
+                  {selectedUser.phone ? ` · ${selectedUser.phone}` : ''}
+                  {` · ${selectedUser.role ?? 'student'}`}
+                  {` · joined ${formatDate(selectedUser.created_at)}`}
+                  {` · last login ${canReadLastLogin ? (selectedUser.lastSignInAt ? formatDateTime(selectedUser.lastSignInAt) : 'never') : 'unavailable'}`}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[60vh] space-y-3 overflow-y-auto">
+                {history.length === 0 && <p className="text-sm text-gray-500">This person has no enrollments yet.</p>}
+                {history.map((enrollment) => {
+                  const expiresAt = enrollmentExpiresAt(enrollment.enrolledAt, enrollment.duration);
+                  return (
+                    <div key={enrollment.id} className="rounded-lg border p-3 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium">{enrollment.courseTitle}</p>
+                        <Badge variant="secondary">{enrollment.status ?? 'unknown'}</Badge>
+                      </div>
+                      <p className="mt-1 text-gray-600">Enrolled {formatDate(enrollment.enrolledAt)}</p>
+                      <p className="text-gray-600">
+                        Expires {expiresAt ? formatDate(expiresAt) : 'no end date'}
+                        {enrollment.duration ? ` · ${enrollment.duration}` : ''}
+                      </p>
+                      <p className="text-gray-600">
+                        Progress {enrollment.progress ?? 0}%
+                        {enrollment.completedAt ? ` · completed ${formatDate(enrollment.completedAt)}` : ''}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
+      </DialogContent>
+    </Dialog>
     <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
       <DialogContent>
         <DialogHeader>

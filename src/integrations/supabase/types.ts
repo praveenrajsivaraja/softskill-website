@@ -1063,6 +1063,13 @@ export type Database = {
         Args: { target_course_id: string }
         Returns: undefined
       }
+      admin_user_sign_ins: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          last_sign_in_at: string | null
+        }[]
+      }
     }
     Enums: {
       course_status: "active" | "inactive" | "archived"
