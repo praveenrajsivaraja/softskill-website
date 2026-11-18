@@ -22,6 +22,7 @@ import CareerTest from "./pages/CareerTest";
 import MBTITestPage from "./pages/MBTITestPage";
 import DriveViewer from "./pages/DriveViewer";
 import NotFound from "./pages/NotFound";
+import KikiAssistant from "./components/KikiAssistant";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => {
               <Route path="admin-login" element={<AdminLogin />} />
               <Route path="admin/*" element={<AdminDashboard />} />
             </Routes>
+            <KikiAssistant />
           </AuthProvider>
         </BrowserRouter>
         <Toaster />
