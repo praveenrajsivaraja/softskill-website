@@ -194,10 +194,10 @@ const KikiAssistant = () => {
           table: local.table,
           stats: local.stats,
           links: sanitizeAssistantLinks(local.links, isAdmin),
-          report: local.report,
+          report: isAdmin ? local.report : null,
           suggestions,
         }));
-        if (local.report?.downloadNow) {
+        if (isAdmin && local.report?.downloadNow) {
           downloadExcelReport(local.report.filename, local.report.sheets);
         }
         return;
@@ -479,7 +479,7 @@ const MessageBubble = ({ message, isAdmin, onEdit, onRemove, onConfirm, onAsk }:
         </div>
       )}
       {message.table && <DataTable table={message.table} />}
-      {message.report && (
+      {isAdmin && message.report && (
         <button
           type="button"
           onClick={() => downloadExcelReport(message.report.filename, message.report.sheets)}

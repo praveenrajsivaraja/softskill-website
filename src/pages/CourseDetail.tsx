@@ -12,7 +12,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import EnrollButton from '@/components/EnrollButton';
 import CourseMaterials from '@/components/CourseMaterials';
 import { fetchCourseMaterials, type CourseMaterial } from '@/lib/courseDocuments';
-import { buildDocumentPreviewImageUrl } from '@/lib/courseAttachmentLink';
 import { resolveCourseImageUrl } from '@/lib/courseImages';
 import CourseSections from '@/components/CourseSections';
 import { COURSE_TYPE_CAREER_TEST } from '@/lib/courseCatalog';
@@ -44,7 +43,6 @@ const CourseDetail = () => {
   const [canViewMaterials, setCanViewMaterials] = useState(false);
   const [materials, setMaterials] = useState<CourseMaterial[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
-  const [imagesReady, setImagesReady] = useState(true);
   const [enrollmentLoading, setEnrollmentLoading] = useState(true);
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
@@ -66,7 +64,6 @@ const CourseDetail = () => {
       setHasPaidOrder(false);
       setCanViewMaterials(false);
       setMaterialsLoading(false);
-      setImagesReady(true);
       setEnrollmentLoading(false);
     }
   }, [courseId, user, isAuthenticated]);
@@ -79,7 +76,6 @@ const CourseDetail = () => {
 
     let isCurrent = true;
     setMaterialsLoading(true);
-    setImagesReady(false);
     fetchCourseMaterials(courseId)
       .then((documents) => {
         if (isCurrent) {
@@ -98,51 +94,6 @@ const CourseDetail = () => {
   }, [courseId, canViewMaterials]);
 
   useEffect(() => {
-    if (!canViewMaterials || materialsLoading) {
-      return;
-    }
-
-    const previewUrls = materials
-      .map((document) => buildDocumentPreviewImageUrl(document.driveUrl, document.previewImageUrl))
-      .filter((url): url is string => Boolean(url));
-
-    if (previewUrls.length === 0) {
-      setImagesReady(true);
-      return;
-    }
-
-    let remaining = previewUrls.length;
-    let isCurrent = true;
-    const finish = () => {
-      remaining -= 1;
-      if (isCurrent && remaining <= 0) {
-        setImagesReady(true);
-      }
-    };
-    const timeoutId = window.setTimeout(() => {
-      if (isCurrent) {
-        setImagesReady(true);
-      }
-    }, 8000);
-    const previews = previewUrls.map((url) => {
-      const image = new Image();
-      image.onload = finish;
-      image.onerror = finish;
-      image.src = url;
-      return image;
-    });
-
-    return () => {
-      isCurrent = false;
-      window.clearTimeout(timeoutId);
-      for (const image of previews) {
-        image.onload = null;
-        image.onerror = null;
-      }
-    };
-  }, [canViewMaterials, materialsLoading, materials]);
-
-  useEffect(() => {
     if (location.hash !== '#materials' || !canViewMaterials) {
       return;
     }
@@ -155,7 +106,6 @@ const CourseDetail = () => {
       setHasPaidOrder(false);
       setCanViewMaterials(false);
       setMaterialsLoading(false);
-      setImagesReady(true);
       setEnrollmentLoading(false);
       return;
     }
@@ -204,8 +154,9 @@ const CourseDetail = () => {
       setIsEnrolled(enrolled);
       setHasPaidOrder(paid);
       setCanViewMaterials(hasAccess);
-      setMaterialsLoading(hasAccess);
-      setImagesReady(!hasAccess);
+      if (!hasAccess) {
+        setMaterialsLoading(false);
+      }
     } catch (error) {
       console.error(JSON.stringify({
         event: 'course_access_lookup_failed',
@@ -215,7 +166,6 @@ const CourseDetail = () => {
       setHasPaidOrder(false);
       setCanViewMaterials(false);
       setMaterialsLoading(false);
-      setImagesReady(true);
     } finally {
       setEnrollmentLoading(false);
     }
@@ -275,7 +225,7 @@ const CourseDetail = () => {
     }
   };
 
-  if (loading || enrollmentLoading || (canViewMaterials && (materialsLoading || !imagesReady))) {
+  if (loading || enrollmentLoading) {
     return (
       <div className="min-h-screen">
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -401,11 +351,19 @@ const CourseDetail = () => {
       </div>
 
       {canViewMaterials ? (
+        materialsLoading ? (
+          <section id="materials" className="container mx-auto px-4 pt-8">
+            <div className="flex items-center justify-center py-16">
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-kiki-purple-600"></div>
+            </div>
+          </section>
+        ) : (
           <CourseMaterials
             courseId={course.id}
             documents={materials}
             canUsePurchasedActions={canUsePurchasedCourseActions({ isEnrolled, hasPaidOrder })}
           />
+        )
       ) : (
         <section className="container mx-auto px-4 pt-8">
           <Card>

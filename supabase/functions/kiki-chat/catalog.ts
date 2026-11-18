@@ -145,14 +145,19 @@ const listCourses = async (db: SupabaseClient, role: CallerRole, category?: stri
     return emptyOutcome('The course list could not be loaded.', error.code ?? 'query_failed');
   }
   const courses = (data ?? []) as CourseRow[];
+  const summary = courses.length === 0 ? 'No active courses matched.' : `${courses.length} active course(s) matched.`;
+  const links = courses.slice(0, 8).flatMap((course) => courseLink(role, course));
+  if (role !== 'admin') {
+    return { summary, table: null, stats: null, links, denied: false, errorCode: null };
+  }
   return {
-    summary: courses.length === 0 ? 'No active courses matched.' : `${courses.length} active course(s) matched.`,
+    summary,
     table: {
       columns: ['Title', 'Category', 'Price', 'Duration', 'Ages', 'Mode'],
       rows: courses.map((course) => [text(course.title), text(course.category), text(course.price), text(course.duration), text(course.age_range), text(course.mode)]),
     },
     stats: [{ label: 'Courses', value: String(courses.length) }],
-    links: courses.slice(0, 8).flatMap((course) => courseLink(role, course)),
+    links,
     denied: false,
     errorCode: null,
   };
@@ -170,6 +175,17 @@ const getCourse = async (db: SupabaseClient, role: CallerRole, title: string): P
     return emptyOutcome(`More than one course is named "${title}".`);
   }
   const course = found.courses[0];
+  const links = courseLink(role, course);
+  if (role !== 'admin') {
+    return {
+      summary: `${text(course.title)} is open for enrollment.`,
+      table: null,
+      stats: null,
+      links,
+      denied: false,
+      errorCode: null,
+    };
+  }
   return {
     summary: `${text(course.title)} is ${text(course.status)}.`,
     table: {
@@ -185,7 +201,7 @@ const getCourse = async (db: SupabaseClient, role: CallerRole, title: string): P
       ],
     },
     stats: null,
-    links: courseLink(role, course),
+    links,
     denied: false,
     errorCode: null,
   };

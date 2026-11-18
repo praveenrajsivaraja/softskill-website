@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { excelDownloadFromReport, loadAdminExcelReport } from '@/lib/kiki/adminExcelExport';
+import { presentCourseCatalog } from '@/lib/kiki/courseCatalogReply';
 import { describeIntent, matchQuestion, reportKindFromQuestion, searchKeywords, type AssistantIntent } from '@/lib/kiki/routes';
 import type { ExcelDownload } from '@/lib/excelReport';
 import { buildSaleOrders, summarizeProgramSales } from '@/lib/programSales';
@@ -26,7 +27,10 @@ const text = (value: unknown, fallback = '—'): string => {
 
 const normalize = (question: string) => question.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
-const reportFromAnswer = (extra: Partial<Omit<LocalReply, 'text'>>): ExcelDownload | null => {
+const reportFromAnswer = (extra: Partial<Omit<LocalReply, 'text'>>, isAdmin: boolean): ExcelDownload | null => {
+  if (!isAdmin) {
+    return null;
+  }
   if (extra.report) {
     return extra.report;
   }
@@ -54,12 +58,13 @@ const reportFromAnswer = (extra: Partial<Omit<LocalReply, 'text'>>): ExcelDownlo
 const reply = (
   textValue: string,
   extra: Partial<Omit<LocalReply, 'text'>> = {},
+  isAdmin = false,
 ): LocalReply => ({
   text: textValue,
   table: extra.table ?? null,
   stats: extra.stats ?? null,
   links: extra.links ?? [],
-  report: reportFromAnswer(extra),
+  report: reportFromAnswer(extra, isAdmin),
 });
 
 const denied = () => reply('You do not have access to that information.');
@@ -76,13 +81,14 @@ export const answerLocally = async (
   }
   const matched = matchQuestion(question);
   const keywords = searchKeywords(question);
+  const isAdmin = role === 'admin';
   if (matched && 'intent' in matched && matched.intent === 'list_courses' && keywords.length > 0) {
-    return (await searchCourses(keywords)) ?? reply(`No active courses match ${keywords.join(' ')}.`, {
+    return (await searchCourses(keywords, isAdmin)) ?? reply(`No active courses match ${keywords.join(' ')}.`, {
       links: [{ label: 'Programs', path: '/programs' }],
     });
   }
   if (!matched) {
-    return keywords.length > 0 ? searchCourses(keywords) : null;
+    return keywords.length > 0 ? searchCourses(keywords, isAdmin) : null;
   }
   if ('clarify' in matched) {
     return reply(`Do you want ${describeIntent(matched.clarify[0])} or ${describeIntent(matched.clarify[1])}?`);
@@ -113,7 +119,7 @@ const replyForIntent = (
     case 'highest_enrollment':
       return isAdmin ? highestEnrollment() : denied();
     case 'overview':
-      return isAdmin ? platformOverview() : listCourses();
+      return isAdmin ? platformOverview() : listCourses(false);
     case 'inactive_users':
       return isAdmin ? inactiveUsers() : denied();
     case 'average_score':
@@ -123,7 +129,7 @@ const replyForIntent = (
     case 'my_scores':
       return userId ? myAttempts(userId) : signIn('see your scores');
     case 'list_courses':
-      return listCourses();
+      return listCourses(isAdmin);
     case 'enroll':
       return reply('Enroll from the program page.\n→ Open a program\n→ Add it to the cart\n→ Finish checkout\n→ Your learning then appears on My learning', {
         links: [
@@ -237,7 +243,7 @@ const exportReport = async (question: string): Promise<LocalReply> => {
     return reply(loaded.text, {
       links: loaded.links,
       report: excelDownloadFromReport(loaded),
-    });
+    }, true);
   } catch (error) {
     console.error(JSON.stringify({
       event: 'kiki_excel_export_failed',
@@ -277,23 +283,28 @@ interface CourseSummary {
   mode: string | null;
 }
 
-const describeCourses = (courses: CourseSummary[], summary: string): LocalReply => reply(summary, {
-  stats: [{ label: 'Courses', value: String(courses.length) }],
-  table: {
-    columns: ['Title', 'Category', 'Price', 'Duration', 'Ages', 'Mode'],
-    rows: courses.slice(0, 20).map((course) => [
-      text(course.title),
-      text(course.category),
-      text(course.price),
-      text(course.duration),
-      text(course.age_range),
-      text(course.mode),
-    ]),
-  },
-  links: courses.slice(0, 8).map((course) => ({ label: text(course.title, 'Open course'), path: `/course/${course.id}` })),
-});
+const describeCourses = (courses: CourseSummary[], summary: string, isAdmin: boolean): LocalReply => {
+  const presented = presentCourseCatalog(
+    courses.map((course) => ({
+      id: course.id,
+      title: course.title,
+      category: course.category,
+      price: course.price,
+      duration: course.duration,
+      ageRange: course.age_range,
+      mode: course.mode,
+    })),
+    summary,
+    isAdmin,
+  );
+  return reply(presented.text, {
+    stats: presented.stats,
+    table: presented.table,
+    links: presented.links,
+  }, presented.includeSpreadsheet);
+};
 
-const listCourses = async (): Promise<LocalReply> => {
+const listCourses = async (isAdmin: boolean): Promise<LocalReply> => {
   const { data, error } = await supabase
     .from('courses')
     .select('id, title, category, price, duration, age_range, mode')
@@ -308,10 +319,10 @@ const listCourses = async (): Promise<LocalReply> => {
   if (courses.length === 0) {
     return reply('No active courses are available.');
   }
-  return describeCourses(courses, `${courses.length} active course(s) are available.`);
+  return describeCourses(courses, `${courses.length} active course(s) are available.`, isAdmin);
 };
 
-const searchCourses = async (keywords: string[]): Promise<LocalReply | null> => {
+const searchCourses = async (keywords: string[], isAdmin: boolean): Promise<LocalReply | null> => {
   if (keywords.length === 0) {
     return null;
   }
@@ -336,7 +347,7 @@ const searchCourses = async (keywords: string[]): Promise<LocalReply | null> => 
   }
   const label = keywords.join(' ');
   const summary = matched.length === 1 ? `1 course matches ${label}.` : `${matched.length} courses match ${label}.`;
-  return describeCourses(matched, summary);
+  return describeCourses(matched, summary, isAdmin);
 };
 
 const myEnrollments = async (userId: string): Promise<LocalReply> => {
@@ -448,7 +459,7 @@ const totalSales = async (): Promise<LocalReply> => {
       rows: summary.programTotals.slice(0, 10).map((program) => [program.title, String(program.unitsSold), formatInr(program.revenue)]),
     },
     links: [{ label: 'Sales', path: '/admin/sales' }],
-  });
+  }, true);
 };
 
 const countEnrollments = async (): Promise<LocalReply> => {
@@ -461,7 +472,7 @@ const countEnrollments = async (): Promise<LocalReply> => {
   return reply(`There are ${value} enrollment(s).`, {
     stats: [{ label: 'Enrollments', value: String(value) }],
     links: [{ label: 'Enrollments', path: '/admin/enrollments' }],
-  });
+  }, true);
 };
 
 const countCourses = async (): Promise<LocalReply> => {
@@ -471,7 +482,7 @@ const countCourses = async (): Promise<LocalReply> => {
     return reply('Courses could not be counted.');
   }
   const value = count ?? 0;
-  return reply(`There are ${value} course(s).`, { stats: [{ label: 'Courses', value: String(value) }] });
+  return reply(`There are ${value} course(s).`, { stats: [{ label: 'Courses', value: String(value) }] }, true);
 };
 
 const countUsers = async (): Promise<LocalReply> => {
@@ -481,7 +492,7 @@ const countUsers = async (): Promise<LocalReply> => {
     return reply('Users could not be counted.');
   }
   const value = count ?? 0;
-  return reply(`There are ${value} registered user(s).`, { stats: [{ label: 'Registered users', value: String(value) }] });
+  return reply(`There are ${value} registered user(s).`, { stats: [{ label: 'Registered users', value: String(value) }] }, true);
 };
 
 const platformOverview = async (): Promise<LocalReply> => {
@@ -504,7 +515,7 @@ const platformOverview = async (): Promise<LocalReply> => {
       { label: 'Enrollments', value: String(enrollments.count ?? 0) },
     ],
     links: [{ label: 'Dashboard', path: '/admin' }],
-  });
+  }, true);
 };
 
 const highestEnrollment = async (): Promise<LocalReply> => {
@@ -538,7 +549,7 @@ const highestEnrollment = async (): Promise<LocalReply> => {
   return reply(`${text(winner.title)} has the highest enrollment, with ${winnerCount} enrollment(s).`, {
     stats: [{ label: 'Highest enrollment', value: `${text(winner.title)} (${winnerCount})` }],
     links: [{ label: text(winner.title, 'Open course'), path: `/course/${winner.id}` }],
-  });
+  }, true);
 };
 
 const averageScore = async (): Promise<LocalReply> => {
@@ -566,7 +577,7 @@ const averageScore = async (): Promise<LocalReply> => {
   if (percent !== null) {
     stats.push({ label: 'Average percent', value: `${percent}%` });
   }
-  return reply(`The average score is ${average} across ${attempts.length} attempt(s).`, { stats });
+  return reply(`The average score is ${average} across ${attempts.length} attempt(s).`, { stats }, true);
 };
 
 const inactiveUsers = async (): Promise<LocalReply> => {
@@ -603,5 +614,5 @@ const inactiveUsers = async (): Promise<LocalReply> => {
       rows: inactive.slice(0, 20).map((person) => [text(person.full_name), text(person.email)]),
     },
     links: [{ label: 'Users', path: '/admin/users' }],
-  });
+  }, true);
 };
