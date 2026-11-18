@@ -47,6 +47,12 @@ export const adminSuggestions = [
 const normalizeQuestion = (question: string) => question.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
 const relatedPool = (asked: string, isAdmin: boolean): string[] => {
+  const matched = matchQuestion(asked);
+  if (matched && 'intent' in matched && matched.intent === 'count_enrollments') {
+    return isAdmin
+      ? ['Which course has the highest enrollment?', 'Give me an overview of the platform.', 'How many courses are available?', 'How many registered users are there?']
+      : ['Which courses am I enrolled in?', 'Show me the courses I can join.', 'How do I enroll in a course?'];
+  }
   if (/(add|create|new|upload).{0,24}(assessment|question)|(assessment|question).{0,24}(add|create)/.test(asked)) {
     return isAdmin
       ? ['How do I add a course?', 'How do I upload course materials?', 'Where do I see student scores?', 'How many courses are available?']
@@ -112,7 +118,7 @@ const stopWords = new Set([
 ]);
 
 const stemWord = (word: string) => {
-  if (word.startsWith('enroll')) {
+  if (word.startsWith('enrol')) {
     return 'enroll';
   }
   if (word.startsWith('assess')) {
@@ -175,11 +181,242 @@ const rankedByQuestion = (question: string, isAdmin: boolean): string[] => {
     .map((entry) => entry.item);
 };
 
-export const isCourseCountQuestion = (question: string) =>
-  /(how many courses?|count of courses?|number of courses?|total(?: no| number)? of courses?|total courses?|courses? total|course count|count courses?)/.test(normalizeQuestion(question));
+export type AssistantIntent =
+  | 'highest_enrollment'
+  | 'average_score'
+  | 'inactive_users'
+  | 'count_enrollments'
+  | 'count_courses'
+  | 'count_users'
+  | 'my_scores'
+  | 'student_progress'
+  | 'my_enrollments'
+  | 'my_progress'
+  | 'add_assessment'
+  | 'assessment_howto'
+  | 'upload_material'
+  | 'add_course'
+  | 'thumbnail'
+  | 'find_assessment'
+  | 'enroll'
+  | 'career_test'
+  | 'manage_users'
+  | 'sales'
+  | 'coupon'
+  | 'homepage'
+  | 'sign_up'
+  | 'cart'
+  | 'list_courses'
+  | 'overview'
+  | 'navigation';
 
-export const isUserCountQuestion = (question: string) =>
-  /(how many users|how many people|registered users|total users|users total|user count)/.test(normalizeQuestion(question));
+export interface QuestionMatch {
+  intent: AssistantIntent;
+}
+
+export interface QuestionClarification {
+  clarify: [AssistantIntent, AssistantIntent];
+}
+
+interface IntentRule {
+  intent: AssistantIntent;
+  topics: string[];
+  signals: string[];
+  minimumSignals: number;
+  blockedWords: string[];
+}
+
+const intentRule = (
+  intent: AssistantIntent,
+  topics: string[],
+  signals: string[] = [],
+  minimumSignals = 0,
+  blockedWords: string[] = [],
+): IntentRule => ({ intent, topics, signals, minimumSignals, blockedWords });
+
+const intentRules: IntentRule[] = [
+  intentRule('highest_enrollment', ['enrollment', 'enrolled', 'course', 'user'], ['highest'], 1, ['average', 'inactive']),
+  intentRule('average_score', ['score', 'assessment'], ['average'], 1),
+  intentRule('inactive_users', ['user', 'student', 'people'], ['inactive'], 1),
+  intentRule('count_enrollments', ['enrollment', 'enrolled'], ['total', 'count'], 1, ['highest', 'average', 'inactive']),
+  intentRule('count_courses', ['course', 'program'], ['total', 'count'], 1, ['highest', 'average', 'inactive', 'enrollment', 'enrolled', 'enroll', 'assessment']),
+  intentRule('count_users', ['user', 'student', 'people'], ['total', 'count', 'registered'], 1, ['highest', 'inactive', 'enrollment', 'enrolled']),
+  intentRule('my_scores', ['score'], ['my', 'check'], 1, ['average', 'student', 'inactive']),
+  intentRule('student_progress', ['score', 'progress'], ['student'], 1, ['my', 'average']),
+  intentRule('my_enrollments', ['enrolled', 'course'], ['my', 'enrolled'], 1, ['total', 'count', 'highest', 'average', 'add', 'create', 'show', 'available', 'join']),
+  intentRule('my_progress', ['progress', 'learning'], ['my', 'learning', 'check'], 1, ['student', 'average', 'course']),
+  intentRule('add_assessment', ['assessment', 'question'], ['add', 'create', 'new', 'upload', 'build'], 1, ['score', 'average', 'material']),
+  intentRule('assessment_howto', ['assessment', 'evaluation', 'passing'], ['work', 'evaluation', 'passing', 'score'], 1, ['add', 'create', 'new', 'upload', 'build', 'my', 'average', 'student', 'check', 'total', 'count']),
+  intentRule('upload_material', ['material', 'document', 'file', 'pdf'], ['upload', 'add', 'attach'], 1, ['assessment']),
+  intentRule('add_course', ['course', 'program'], ['add', 'create', 'new', 'edit', 'delete', 'manage'], 1, ['assessment', 'material', 'document', 'file', 'coupon']),
+  intentRule('thumbnail', ['thumbnail', 'image', 'aspect', 'ratio'], ['size', 'thumbnail', 'image', 'aspect', 'ratio']),
+  intentRule('find_assessment', ['assessment'], ['find', 'take', 'where'], 1, ['add', 'create', 'score', 'average', 'upload']),
+  intentRule('enroll', ['enroll', 'join'], ['course', 'how'], 0, ['show', 'list', 'available', 'what', 'which', 'highest', 'total', 'count', 'enrollment']),
+  intentRule('career_test', ['career'], ['test', 'add', 'create', 'edit', 'manage', 'where']),
+  intentRule('manage_users', ['user'], ['add', 'create', 'edit', 'delete', 'manage'], 1, ['inactive', 'highest', 'count', 'total', 'score', 'enrolled', 'enrollment']),
+  intentRule('sales', ['sale', 'revenue']),
+  intentRule('coupon', ['coupon', 'discount']),
+  intentRule('homepage', ['homepage'], [], 0, ['overview']),
+  intentRule('sign_up', ['signup', 'register', 'account']),
+  intentRule('cart', ['cart', 'checkout', 'pay']),
+  intentRule('list_courses', ['course', 'program'], ['available', 'list', 'show', 'join', 'what', 'which'], 0, ['total', 'count', 'add', 'create', 'delete', 'upload', 'edit', 'manage', 'enroll', 'enrolled', 'enrollment', 'highest', 'average', 'inactive', 'image', 'thumbnail', 'material', 'assessment', 'user', 'my']),
+  intentRule('overview', ['overview'], ['platform']),
+  intentRule('navigation', ['navigate', 'menu', 'screen'], [], 0, ['course', 'user', 'assessment', 'score', 'enrollment']),
+];
+
+const intentLabels: Record<AssistantIntent, string> = {
+  highest_enrollment: 'the course with the highest enrollment',
+  average_score: 'the average assessment score',
+  inactive_users: 'inactive users',
+  count_enrollments: 'total enrollment',
+  count_courses: 'the number of courses',
+  count_users: 'the number of users',
+  my_scores: 'your assessment scores',
+  student_progress: 'student scores',
+  my_enrollments: 'your enrollments',
+  my_progress: 'your learning progress',
+  add_assessment: 'adding an assessment',
+  assessment_howto: 'how assessments work',
+  upload_material: 'uploading course materials',
+  add_course: 'adding a course',
+  thumbnail: 'course images',
+  find_assessment: 'finding your assessments',
+  enroll: 'how to enroll',
+  career_test: 'the career test',
+  manage_users: 'managing users',
+  sales: 'sales',
+  coupon: 'coupons',
+  homepage: 'the homepage',
+  sign_up: 'creating an account',
+  cart: 'the cart and checkout',
+  list_courses: 'the course list',
+  overview: 'the platform overview',
+  navigation: 'where to go in the app',
+};
+
+const matcherStopWords = new Set([
+  'a', 'an', 'the', 'to', 'of', 'in', 'on', 'for', 'and', 'or', 'me', 'i',
+  'do', 'does', 'is', 'are', 'am', 'please', 'tell', 'about', 'with', 'from',
+  'that', 'this', 'it', 'you', 'your', 'there', 'be', 'want', 'need', 'know',
+  'can', 'give', 'has', 'have', 'had', 'was', 'were', 'who', 'whom', 'just',
+]);
+
+const catalogWords = new Set([
+  'course', 'program', 'user', 'student', 'people', 'admin', 'assessment', 'score',
+  'enrollment', 'enroll', 'enrolled', 'question', 'platform', 'total', 'count',
+  'available', 'add', 'create', 'show', 'list', 'how', 'what', 'where', 'which',
+  'my', 'new', 'help', 'overview', 'homepage', 'cart', 'checkout', 'highest',
+  'average', 'inactive', 'registered', 'upload', 'delete', 'edit', 'manage',
+  'sale', 'revenue', 'coupon', 'discount', 'thumbnail', 'image', 'progress',
+  'learn', 'learning', 'join', 'take', 'find', 'check', 'see', 'work', 'passing',
+  'size', 'aspect', 'ratio', 'menu', 'screen', 'navigate', 'signup', 'register',
+  'account', 'pay', 'material', 'document', 'file', 'pdf', 'career', 'test',
+  'build', 'attach', 'evaluation', 'open', 'get', 'make', 'use', 'using', 'app',
+  'website', 'page', 'info', 'information',
+]);
+
+const canonicalizeToken = (word: string): string => {
+  if (word === 'enrolment' || word === 'enrolments' || word === 'enrollment' || word === 'enrollments') {
+    return 'enrollment';
+  }
+  if (word === 'enrolled') {
+    return 'enrolled';
+  }
+  if (word === 'enroll' || word === 'enrol' || word === 'enrolling') {
+    return 'enroll';
+  }
+  if (word === 'most') {
+    return 'highest';
+  }
+  if (word === 'avg') {
+    return 'average';
+  }
+  if (word === 'summary') {
+    return 'overview';
+  }
+  if (word === 'many' || word === 'number') {
+    return 'count';
+  }
+  if (word === 'programme' || word === 'programmes') {
+    return 'program';
+  }
+  if (word.endsWith('ies') && word.length > 4) {
+    return `${word.slice(0, -3)}y`;
+  }
+  if (word.endsWith('s') && word.length > 3 && !word.endsWith('ss')) {
+    return word.slice(0, -1);
+  }
+  return word;
+};
+
+const preparedQuestion = (question: string) => normalizeQuestion(question)
+  .replace(/\bhome page\b/g, 'homepage')
+  .replace(/\bsign up\b/g, 'signup');
+
+const matchTokens = (question: string): string[] => {
+  const unique: string[] = [];
+  for (const word of preparedQuestion(question).split(' ')) {
+    if (!word || matcherStopWords.has(word)) {
+      continue;
+    }
+    const token = canonicalizeToken(word);
+    if ((token.length < 3 && token !== 'my') || matcherStopWords.has(token) || unique.includes(token)) {
+      continue;
+    }
+    unique.push(token);
+  }
+  return unique;
+};
+
+const scoreRule = (tokens: Set<string>, item: IntentRule): number => {
+  if (item.blockedWords.some((word) => tokens.has(word))) {
+    return 0;
+  }
+  const topicHits = item.topics.filter((word) => tokens.has(word)).length;
+  if (topicHits === 0) {
+    return 0;
+  }
+  const signalHits = item.signals.filter((word) => tokens.has(word)).length;
+  if (signalHits < item.minimumSignals) {
+    return 0;
+  }
+  return 10 + signalHits * 5 + topicHits;
+};
+
+export const describeIntent = (intent: AssistantIntent): string => intentLabels[intent];
+
+export const matchQuestion = (question: string): QuestionMatch | QuestionClarification | null => {
+  const tokens = new Set(matchTokens(question));
+  if (tokens.size === 0) {
+    return null;
+  }
+  const ranked = intentRules
+    .map((item, index) => ({ item, index, score: scoreRule(tokens, item) }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score || left.index - right.index);
+  const winner = ranked[0];
+  if (!winner) {
+    return null;
+  }
+  const runnerUp = ranked[1];
+  if (runnerUp && runnerUp.score === winner.score) {
+    return { clarify: [winner.item.intent, runnerUp.item.intent] };
+  }
+  return { intent: winner.item.intent };
+};
+
+export const searchKeywords = (question: string): string[] =>
+  matchTokens(question).filter((word) => !catalogWords.has(word));
+
+export const isCourseCountQuestion = (question: string) => {
+  const matched = matchQuestion(question);
+  return matched !== null && 'intent' in matched && matched.intent === 'count_courses';
+};
+
+export const isUserCountQuestion = (question: string) => {
+  const matched = matchQuestion(question);
+  return matched !== null && 'intent' in matched && matched.intent === 'count_users';
+};
 
 export const notUnderstoodText = "I'm not able to understand that question.";
 

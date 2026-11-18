@@ -84,7 +84,19 @@ test('a document accepts a Google Docs link, a Drive link, or a Google redirect 
   );
   assert.equal(
     buildDocumentEmbedUrl('https://docs.google.com/presentation/d/abc_DEF-123/edit?usp=sharing'),
-    'https://docs.google.com/presentation/d/abc_DEF-123/embed?start=false&loop=false&delayms=3000',
+    'https://docs.google.com/presentation/d/abc_DEF-123/preview',
+  );
+  assert.equal(
+    buildDocumentEmbedUrl('https://docs.google.com/presentation/u/0/d/abc_DEF-123/edit?usp=sharing'),
+    'https://docs.google.com/presentation/d/abc_DEF-123/preview',
+  );
+  assert.equal(
+    buildDocumentEmbedUrl('https://docs.google.com/presentation/d/e/2PACX-abc_DEF-123/embed?start=false'),
+    'https://docs.google.com/presentation/d/e/2PACX-abc_DEF-123/embed?start=false&loop=false&delayms=3000',
+  );
+  assert.equal(
+    buildDocumentEmbedUrl('https://docs.google.com/document/u/1/d/abc_DEF-123/edit'),
+    'https://docs.google.com/document/d/abc_DEF-123/preview',
   );
   assert.equal(
     buildDocumentPreviewImageUrl(

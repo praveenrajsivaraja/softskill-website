@@ -110,8 +110,9 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, title = "Document", cl
         <iframe
           src={embedUrl}
           className="absolute top-0 left-0 w-full h-full rounded-lg border border-gray-200"
-          allow="autoplay"
+          allow="autoplay; fullscreen"
           allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
           title={title}
         />
       </div>

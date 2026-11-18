@@ -1,7 +1,14 @@
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  applySavedMenuOrder,
+  readAdminMenuOrder,
+  reorderMenuItems,
+  writeAdminMenuOrder,
+} from '@/lib/adminMenuOrder';
 import { 
   Users, 
   BookOpen, 
@@ -14,6 +21,7 @@ import {
   Ticket,
   Receipt,
   Shield,
+  GripVertical,
   X
 } from 'lucide-react';
 
@@ -22,11 +30,7 @@ interface AdminSidebarProps {
   onClose: () => void;
 }
 
-const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const menuItems = [
+const defaultMenuItems = [
     { 
       icon: Bell, 
       label: 'Dashboard', 
@@ -89,6 +93,21 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
     },
   ];
 
+const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const [menuItems, setMenuItems] = useState(defaultMenuItems);
+  const [draggedPath, setDraggedPath] = useState<string | null>(null);
+  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
+  const draggedPathRef = useRef<string | null>(null);
+  const didDragRef = useRef(false);
+
+  useEffect(() => {
+    const savedOrder = readAdminMenuOrder(user?.id, localStorage);
+    setMenuItems(applySavedMenuOrder(defaultMenuItems, savedOrder));
+  }, [user?.id]);
+
   const handleNavigation = (path: string) => {
     navigate(path);
     // Close sidebar on mobile after navigation
@@ -98,9 +117,9 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
   };
 
   return (
-    <div className="w-64 h-full bg-white shadow-xl border-r border-gray-200 flex flex-col">
+    <div className="flex h-full min-h-0 w-64 flex-col overflow-hidden border-r border-gray-200 bg-white shadow-xl">
       {/* Sidebar Header */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="shrink-0 border-b border-gray-200 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
@@ -123,22 +142,66 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
       </div>
       
       {/* Navigation Menu */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
+          const isDragging = draggedPath === item.path;
+          const isDropTarget = dropTargetPath === item.path && draggedPath !== item.path;
           
           return (
             <Button
               key={item.path}
               variant="ghost"
-              className={`w-full justify-start h-auto p-4 rounded-lg transition-all duration-200 ${
+              draggable
+              className={`w-full justify-start h-auto cursor-grab p-4 rounded-lg transition-all duration-200 active:cursor-grabbing ${
                 isActive 
                   ? 'bg-red-50 text-red-700 border border-red-200 shadow-sm' 
                   : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-              onClick={() => handleNavigation(item.path)}
+              } ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-2 ring-red-300' : ''}`}
+              onClick={() => {
+                if (didDragRef.current) {
+                  didDragRef.current = false;
+                  return;
+                }
+                handleNavigation(item.path);
+              }}
+              onDragStart={(event) => {
+                didDragRef.current = true;
+                draggedPathRef.current = item.path;
+                setDraggedPath(item.path);
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', item.path);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                if (dropTargetPath !== item.path) {
+                  setDropTargetPath(item.path);
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const sourcePath = event.dataTransfer.getData('text/plain') || draggedPathRef.current;
+                if (!sourcePath) {
+                  return;
+                }
+                const nextItems = reorderMenuItems(menuItems, sourcePath, item.path);
+                setMenuItems(nextItems);
+                writeAdminMenuOrder(user?.id, nextItems.map((menuItem) => menuItem.path), localStorage);
+                setDraggedPath(null);
+                setDropTargetPath(null);
+              }}
+              onDragEnd={() => {
+                draggedPathRef.current = null;
+                setDraggedPath(null);
+                setDropTargetPath(null);
+                window.setTimeout(() => {
+                  didDragRef.current = false;
+                }, 0);
+              }}
             >
+              <GripVertical className={`mr-2 shrink-0 ${isActive ? 'text-red-400' : 'text-gray-400'}`} />
               <Icon className={`w-5 h-5 mr-3 flex-shrink-0 ${isActive ? 'text-red-600' : 'text-gray-500'}`} />
               <div className="text-left flex-1 min-w-0">
                 <div className={`font-medium truncate ${isActive ? 'text-red-700' : 'text-gray-900'}`}>
@@ -152,20 +215,6 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
           );
         })}
       </nav>
-
-      {/* Sidebar Footer */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
-          <div className="text-sm">
-            <div className="font-semibold text-red-800 mb-1">System Status</div>
-            <div className="text-red-600 text-xs">All systems operational</div>
-            <div className="flex items-center mt-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              <span className="text-xs text-red-700">Online</span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

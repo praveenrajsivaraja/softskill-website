@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { isCourseCountQuestion, isUserCountQuestion } from '@/lib/kiki/routes';
+import { describeIntent, matchQuestion, searchKeywords, type AssistantIntent } from '@/lib/kiki/routes';
+import { buildSaleOrders, summarizeProgramSales } from '@/lib/programSales';
 
 export interface LocalReply {
   text: string;
@@ -41,65 +42,23 @@ export const answerLocally = async (
   role: AppRole,
   userId: string | null,
 ): Promise<LocalReply | null> => {
-  const asked = normalize(question);
-  const isAdmin = role === 'admin';
-  if (!asked) {
+  if (!normalize(question)) {
     return null;
   }
-  const guide = navigationReply(asked, isAdmin);
-  if (guide) {
-    return guide;
-  }
-  if (/(how do i enroll|enroll in a course|join a course)/.test(asked)) {
-    return reply('Open a program, add it to the cart, and finish checkout. Your learning then appears on My learning.', {
-      links: [
-        { label: 'Programs', path: '/programs' },
-        { label: 'Cart', path: '/cart' },
-        { label: 'My learning', path: '/enrolled-courses' },
-      ],
+  const matched = matchQuestion(question);
+  const keywords = searchKeywords(question);
+  if (matched && 'intent' in matched && matched.intent === 'list_courses' && keywords.length > 0) {
+    return (await searchCourses(keywords)) ?? reply(`No active courses match ${keywords.join(' ')}.`, {
+      links: [{ label: 'Programs', path: '/programs' }],
     });
   }
-  if (/(thumbnail|image size|aspect ratio)/.test(asked)) {
-    return reply('There is no required thumbnail size or aspect ratio. A course image is a Google or Drive link.', {
-      links: isAdmin ? [{ label: 'Courses', path: '/admin/courses' }] : [{ label: 'Programs', path: '/programs' }],
-    });
+  if (!matched) {
+    return keywords.length > 0 ? searchCourses(keywords) : null;
   }
-  if (/(where can i add|add a new course|create a course|new course)/.test(asked)) {
-    return isAdmin
-      ? reply('Add a course from the Courses screen in the admin panel.', { links: [{ label: 'Courses', path: '/admin/courses' }] })
-      : denied();
+  if ('clarify' in matched) {
+    return reply(`Do you want ${describeIntent(matched.clarify[0])} or ${describeIntent(matched.clarify[1])}?`);
   }
-  if (isCourseCountQuestion(asked)) {
-    return isAdmin ? countCourses() : denied();
-  }
-  if (isUserCountQuestion(asked)) {
-    return isAdmin ? countUsers() : denied();
-  }
-  if (/(highest enrollment|most users|most enrolled)/.test(asked)) {
-    return isAdmin ? highestEnrollment() : denied();
-  }
-  if (/(overview|platform summary)/.test(asked)) {
-    return isAdmin ? platformOverview() : listCourses();
-  }
-  if (/(inactive users|who is inactive)/.test(asked)) {
-    return isAdmin ? inactiveUsers() : denied();
-  }
-  if (/(average score|average assessment)/.test(asked)) {
-    return isAdmin ? averageScore() : denied();
-  }
-  if (/(my enrollment|am i enrolled|courses am i|my courses|my learning)/.test(asked)) {
-    return userId ? myEnrollments(userId) : signIn('see your courses');
-  }
-  if (/(assessment score|my score|my attempt|check my assessment)/.test(asked)) {
-    return userId ? myAttempts(userId) : signIn('see your scores');
-  }
-  if (/(courses i can join|available courses|show me the courses|show courses|list courses|what courses)/.test(asked)) {
-    return listCourses();
-  }
-  if (/(how|where|navigate|which screen|what page|can i)/.test(asked)) {
-    return navigationMenu(isAdmin);
-  }
-  return null;
+  return replyForIntent(matched.intent, role === 'admin', userId);
 };
 
 const adminOnly = (textValue: string, path: string, label: string, isAdmin: boolean): LocalReply => {
@@ -109,105 +68,133 @@ const adminOnly = (textValue: string, path: string, label: string, isAdmin: bool
   return reply(textValue, { links: [{ label, path }] });
 };
 
-const navigationReply = (asked: string, isAdmin: boolean): LocalReply | null => {
-  if (/(add|create|new|build|upload).{0,24}(assessment|question)|(assessment|question).{0,24}(add|create|new|upload)/.test(asked)) {
-    return adminOnly(
-      'Open Assessments in the admin panel. Choose the program, then New assessment and Create single assessment. Enter the title, instructions, duration, and passing score. Use Add question for each question, then save. A CSV also works: one row is one question, and program_title must match a saved course title. Saving over an existing assessment title replaces that assessment\'s questions.',
-      '/admin/assessments',
-      'Assessments',
-      isAdmin,
-    );
+const replyForIntent = (
+  intent: AssistantIntent,
+  isAdmin: boolean,
+  userId: string | null,
+): Promise<LocalReply> | LocalReply => {
+  switch (intent) {
+    case 'count_courses':
+      return isAdmin ? countCourses() : denied();
+    case 'count_users':
+      return isAdmin ? countUsers() : denied();
+    case 'count_enrollments':
+      return isAdmin ? countEnrollments() : denied();
+    case 'highest_enrollment':
+      return isAdmin ? highestEnrollment() : denied();
+    case 'overview':
+      return isAdmin ? platformOverview() : listCourses();
+    case 'inactive_users':
+      return isAdmin ? inactiveUsers() : denied();
+    case 'average_score':
+      return isAdmin ? averageScore() : denied();
+    case 'my_enrollments':
+      return userId ? myEnrollments(userId) : signIn('see your courses');
+    case 'my_scores':
+      return userId ? myAttempts(userId) : signIn('see your scores');
+    case 'list_courses':
+      return listCourses();
+    case 'enroll':
+      return reply('Enroll from the program page.\n→ Open a program\n→ Add it to the cart\n→ Finish checkout\n→ Your learning then appears on My learning', {
+        links: [
+          { label: 'Programs', path: '/programs' },
+          { label: 'Cart', path: '/cart' },
+          { label: 'My learning', path: '/enrolled-courses' },
+        ],
+      });
+    case 'thumbnail':
+      return reply('A course image is a Google or Drive link.\n→ There is no required thumbnail size or aspect ratio', {
+        links: isAdmin ? [{ label: 'Courses', path: '/admin/courses' }] : [{ label: 'Programs', path: '/programs' }],
+      });
+    case 'add_assessment':
+      return adminOnly(
+        'Add an assessment in the admin panel.\n→ Open Assessments\n→ Choose the program → New assessment → Create single assessment\n→ Enter the title, instructions, duration, and passing score\n→ Use Add question for each question, then save\n→ A CSV also works: one row is one question, and program_title must match a saved course title\n→ Saving over an existing title replaces that assessment\'s questions',
+        '/admin/assessments',
+        'Assessments',
+        isAdmin,
+      );
+    case 'assessment_howto':
+      return reply('Each assessment belongs to one program.\n→ Question types: multiple choice, listening, fill in the blank, matching, word order, and written response\n→ The passing score is set on that assessment\n→ The answer is checked when the learner submits\n→ A learner is not shown the answer key');
+    case 'upload_material':
+      return adminOnly(
+        'Add a course document from Courses.\n→ Edit the program and add the document link\n→ Use a Google or Drive link\n→ Share the file so anyone with the link can view it\n→ After purchase, the course page groups those files by month',
+        '/admin/courses',
+        'Courses',
+        isAdmin,
+      );
+    case 'add_course':
+      return adminOnly(
+        'Add a course from the admin panel.\n→ Open Courses → Add course → Create single course\n→ Save the form, or upload a CSV\n→ A row with the same title updates that course\n→ The image is a Google or Drive link, with no required pixel size',
+        '/admin/courses',
+        'Courses',
+        isAdmin,
+      );
+    case 'career_test':
+      return adminOnly(
+        'Career tests have two places.\n→ Admins: Career Test → add or edit a test\n→ Learners: public Career Test page',
+        '/admin/career-test',
+        'Career Test',
+        isAdmin,
+      );
+    case 'manage_users':
+      return adminOnly(
+        'Manage accounts from Users.\n→ Create one person, or upload a CSV\n→ A matching email updates that user\n→ Roles are student, instructor, and admin\n→ KIKI cannot create accounts or change passwords',
+        '/admin/users',
+        'Users',
+        isAdmin,
+      );
+    case 'sales':
+      return isAdmin ? totalSales() : denied();
+    case 'coupon':
+      return adminOnly('Discount codes live on Coupons.\n→ Open Coupons to add or edit a code', '/admin/coupons', 'Coupons', isAdmin);
+    case 'homepage':
+      return adminOnly('Public homepage content is edited in the admin panel.\n→ Open Homepage', '/admin/homepage', 'Homepage', isAdmin);
+    case 'student_progress':
+      return isAdmin
+        ? reply('Scores and enrollments are on two screens.\n→ Progress → scores and answers\n→ Enrollments → who joined each program', {
+          links: [
+            { label: 'Progress', path: '/admin/progress' },
+            { label: 'Enrollments', path: '/admin/enrollments' },
+          ],
+        })
+        : reply('Your progress is on My learning.\n→ Open My learning\n→ See the programs you joined', {
+          links: [{ label: 'My learning', path: '/enrolled-courses' }],
+        });
+    case 'find_assessment':
+      return reply('Assessments are on the program page after you enroll.\n→ Open My learning\n→ Open that program', {
+        links: [
+          { label: 'My learning', path: '/enrolled-courses' },
+          { label: 'Programs', path: '/programs' },
+        ],
+      });
+    case 'my_progress':
+      return reply('Your progress is on My learning.\n→ Open My learning\n→ See the programs you joined', {
+        links: [{ label: 'My learning', path: '/enrolled-courses' }],
+      });
+    case 'sign_up':
+      return reply('Create a student account from Login.\n→ Open Login → Sign Up\n→ A new account is created as a student', {
+        links: [{ label: 'Sign in', path: '/login' }],
+      });
+    case 'cart':
+      return reply('Checkout follows the cart.\n→ Add a program\n→ Open the cart\n→ Continue to checkout', {
+        links: [
+          { label: 'Programs', path: '/programs' },
+          { label: 'Cart', path: '/cart' },
+          { label: 'Checkout', path: '/checkout' },
+        ],
+      });
+    case 'navigation':
+      return navigationMenu(isAdmin);
+    default: {
+      const unmetIntent: never = intent;
+      throw new Error(`Unhandled assistant question: ${String(unmetIntent)}`);
+    }
   }
-  if (/how (does|do assessments|are assessments|is an assessment)|evaluation work|passing score/.test(asked)) {
-    return reply('Each assessment belongs to one program. Question types are multiple choice, listening, fill in the blank, matching, word order, and written response. The passing score is set on that assessment. The answer is checked when the learner submits, and a learner is not shown the answer key.');
-  }
-  if (/(upload|add|attach).{0,20}(material|document|file|pdf)|(course material|course document)/.test(asked)) {
-    return adminOnly(
-      'Open Courses, edit the program, and add the document link. Use a Google or Drive link, and share the file so anyone with the link can view it. After purchase, the course page groups those files by month.',
-      '/admin/courses',
-      'Courses',
-      isAdmin,
-    );
-  }
-  if (/(add|create|new).{0,16}(course|program)|where.{0,20}(course|program)/.test(asked)) {
-    return adminOnly(
-      'Open Courses in the admin panel. Choose Add course, then Create single course, and save the form. You can also upload a CSV. A row with the same title updates that course. The image is a Google or Drive link, and there is no required pixel size.',
-      '/admin/courses',
-      'Courses',
-      isAdmin,
-    );
-  }
-  if (/(career test)/.test(asked) && /(add|create|edit|manage|where)/.test(asked)) {
-    return adminOnly(
-      'Open Career Test in the admin panel to add or edit a career test. Learners open the career test from the public Career Test page.',
-      '/admin/career-test',
-      'Career Test',
-      isAdmin,
-    );
-  }
-  if (/(manage|add|create|edit|delete).{0,16}user|where.{0,16}user/.test(asked)) {
-    return adminOnly(
-      'Open Users in the admin panel. Create one person, or upload a CSV. A matching email updates that user. Roles are student, instructor, and admin. KIKI cannot create accounts or change passwords.',
-      '/admin/users',
-      'Users',
-      isAdmin,
-    );
-  }
-  if (/(program sales|sales detail|where.{0,20}(sale|revenue)|see (the )?revenue)/.test(asked)) {
-    return adminOnly(
-      'Open Sales in the admin panel. Statistics show paid revenue and orders. Sales details list each buyer and program. More shows revenue by program.',
-      '/admin/sales',
-      'Sales',
-      isAdmin,
-    );
-  }
-  if (/(coupon|discount)/.test(asked)) {
-    return adminOnly('Open Coupons in the admin panel to add or edit a discount code.', '/admin/coupons', 'Coupons', isAdmin);
-  }
-  if (/(homepage|home page)/.test(asked) && !/(overview)/.test(asked)) {
-    return adminOnly('Open Homepage in the admin panel to change the public homepage content.', '/admin/homepage', 'Homepage', isAdmin);
-  }
-  if (/(student progress|view progress|scores and answers|see student score|where.{0,30}(progress|score))/.test(asked) && isAdmin && !/(my score|my assessment|check my)/.test(asked)) {
-    return reply('Open Progress in the admin panel to see scores and answers. Open Enrollments to see who joined each program.', {
-      links: [
-        { label: 'Progress', path: '/admin/progress' },
-        { label: 'Enrollments', path: '/admin/enrollments' },
-      ],
-    });
-  }
-  if (/(where.{0,24}(assessment)|find my assessment|take an assessment|my assessment)/.test(asked)) {
-    return reply('After you enroll, open that program from My Courses. Its assessments are on the program page.', {
-      links: [
-        { label: 'My learning', path: '/enrolled-courses' },
-        { label: 'Programs', path: '/programs' },
-      ],
-    });
-  }
-  if (/(my progress|learning progress|check my progress)/.test(asked)) {
-    return reply('Open My Courses to see the programs you joined and your progress.', {
-      links: [{ label: 'My learning', path: '/enrolled-courses' }],
-    });
-  }
-  if (/(sign up|register|create an account)/.test(asked)) {
-    return reply('Open Login and choose Sign Up. A new account is created as a student.', {
-      links: [{ label: 'Sign in', path: '/login' }],
-    });
-  }
-  if (/(cart|checkout|pay for)/.test(asked)) {
-    return reply('Add a program to the cart, then open the cart and continue to checkout.', {
-      links: [
-        { label: 'Programs', path: '/programs' },
-        { label: 'Cart', path: '/cart' },
-        { label: 'Checkout', path: '/checkout' },
-      ],
-    });
-  }
-  return null;
 };
 
 const navigationMenu = (isAdmin: boolean): LocalReply => {
   if (!isAdmin) {
-    return reply('You can browse programs, add one to the cart, and finish checkout. Your programs and assessments are on My Courses.', {
+    return reply('Start from the public site.\n→ Browse programs\n→ Add one to the cart and finish checkout\n→ Your programs and assessments are on My Courses', {
       links: [
         { label: 'Programs', path: '/programs' },
         { label: 'My learning', path: '/enrolled-courses' },
@@ -215,7 +202,7 @@ const navigationMenu = (isAdmin: boolean): LocalReply => {
       ],
     });
   }
-  return reply('Use the admin panel: Courses to add a program, Assessments to add questions, Users to manage accounts, Progress for scores, and Enrollments for who joined.', {
+  return reply('Use the admin panel.\n→ Courses → add a program\n→ Assessments → add questions\n→ Users → manage accounts\n→ Progress → scores\n→ Enrollments → who joined', {
     links: [
       { label: 'Courses', path: '/admin/courses' },
       { label: 'Assessments', path: '/admin/assessments' },
@@ -224,6 +211,32 @@ const navigationMenu = (isAdmin: boolean): LocalReply => {
     ],
   });
 };
+
+interface CourseSummary {
+  id: string;
+  title: string | null;
+  category: string | null;
+  price: number | null;
+  duration: string | null;
+  age_range: string | null;
+  mode: string | null;
+}
+
+const describeCourses = (courses: CourseSummary[], summary: string): LocalReply => reply(summary, {
+  stats: [{ label: 'Courses', value: String(courses.length) }],
+  table: {
+    columns: ['Title', 'Category', 'Price', 'Duration', 'Ages', 'Mode'],
+    rows: courses.slice(0, 20).map((course) => [
+      text(course.title),
+      text(course.category),
+      text(course.price),
+      text(course.duration),
+      text(course.age_range),
+      text(course.mode),
+    ]),
+  },
+  links: courses.slice(0, 8).map((course) => ({ label: text(course.title, 'Open course'), path: `/course/${course.id}` })),
+});
 
 const listCourses = async (): Promise<LocalReply> => {
   const { data, error } = await supabase
@@ -237,14 +250,38 @@ const listCourses = async (): Promise<LocalReply> => {
     return reply('The course list could not be loaded.');
   }
   const courses = data ?? [];
-  return reply(courses.length === 0 ? 'No active courses are available.' : `${courses.length} active course(s) are available.`, {
-    stats: [{ label: 'Courses', value: String(courses.length) }],
-    table: {
-      columns: ['Title', 'Category', 'Price', 'Duration', 'Ages', 'Mode'],
-      rows: courses.map((course) => [text(course.title), text(course.category), text(course.price), text(course.duration), text(course.age_range), text(course.mode)]),
-    },
-    links: courses.slice(0, 8).map((course) => ({ label: text(course.title, 'Open course'), path: `/course/${course.id}` })),
-  });
+  if (courses.length === 0) {
+    return reply('No active courses are available.');
+  }
+  return describeCourses(courses, `${courses.length} active course(s) are available.`);
+};
+
+const searchCourses = async (keywords: string[]): Promise<LocalReply | null> => {
+  if (keywords.length === 0) {
+    return null;
+  }
+  const { data, error } = await supabase
+    .from('courses')
+    .select('id, title, category, price, duration, age_range, mode')
+    .eq('status', 'active')
+    .order('title')
+    .limit(200);
+  if (error) {
+    console.error(JSON.stringify({ event: 'kiki_local_course_search_failed', code: error.code }));
+    return reply('The course list could not be loaded.');
+  }
+  const courses = data ?? [];
+  const haystack = (course: CourseSummary) => `${course.title ?? ''} ${course.category ?? ''}`.toLowerCase();
+  const everyMatch = courses.filter((course) => keywords.every((word) => haystack(course).includes(word)));
+  const matched = everyMatch.length > 0
+    ? everyMatch
+    : courses.filter((course) => keywords.some((word) => haystack(course).includes(word)));
+  if (matched.length === 0) {
+    return null;
+  }
+  const label = keywords.join(' ');
+  const summary = matched.length === 1 ? `1 course matches ${label}.` : `${matched.length} courses match ${label}.`;
+  return describeCourses(matched, summary);
 };
 
 const myEnrollments = async (userId: string): Promise<LocalReply> => {
@@ -292,6 +329,83 @@ const myAttempts = async (userId: string): Promise<LocalReply> => {
       }),
     },
     links: [{ label: 'My learning', path: '/enrolled-courses' }],
+  });
+};
+
+const formatInr = (amount: number) => new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+}).format(amount);
+
+const totalSales = async (): Promise<LocalReply> => {
+  const { data: orders, error } = await supabase
+    .from('orders')
+    .select('id, user_id, total_amount, status, payment_method, created_at')
+    .order('created_at', { ascending: false })
+    .limit(1000);
+  if (error) {
+    console.error(JSON.stringify({ event: 'kiki_local_sales_failed', code: error.code }));
+    return reply('Sales could not be loaded.');
+  }
+  const orderRows = orders ?? [];
+  const orderIds = orderRows.map((order) => order.id);
+  const itemResult = orderIds.length === 0
+    ? { data: [], error: null }
+    : await supabase.from('order_items').select('order_id, course_id, price').in('order_id', orderIds);
+  if (itemResult.error) {
+    console.error(JSON.stringify({ event: 'kiki_local_sales_items_failed', code: itemResult.error.code }));
+  }
+  const itemRows = itemResult.data ?? [];
+  const courseIds = [...new Set(itemRows.map((item) => item.course_id))];
+  const courseResult = courseIds.length === 0
+    ? { data: [], error: null }
+    : await supabase.from('courses').select('id, title').in('id', courseIds);
+  if (courseResult.error) {
+    console.error(JSON.stringify({ event: 'kiki_local_sales_courses_failed', code: courseResult.error.code }));
+  }
+  const summary = summarizeProgramSales(buildSaleOrders(
+    orderRows.map((order) => ({
+      id: order.id,
+      userId: order.user_id,
+      amount: order.total_amount,
+      status: order.status,
+      paymentMethod: order.payment_method,
+      createdAt: order.created_at,
+    })),
+    itemRows.map((item) => ({
+      orderId: item.order_id,
+      courseId: item.course_id,
+      price: item.price,
+    })),
+    [],
+    (courseResult.data ?? []).map((course) => ({ id: course.id, title: course.title })),
+  ));
+  return reply(`Paid sales total ${formatInr(summary.paidRevenue)} across ${summary.paidOrderCount} paid order(s).`, {
+    stats: [
+      { label: 'Paid revenue', value: formatInr(summary.paidRevenue) },
+      { label: 'Paid orders', value: String(summary.paidOrderCount) },
+      { label: 'Average order', value: formatInr(summary.averageOrderValue) },
+      { label: 'Programs sold', value: String(summary.programsSold) },
+    ],
+    table: summary.programTotals.length === 0 ? null : {
+      columns: ['Program', 'Sold', 'Revenue'],
+      rows: summary.programTotals.slice(0, 10).map((program) => [program.title, String(program.unitsSold), formatInr(program.revenue)]),
+    },
+    links: [{ label: 'Sales', path: '/admin/sales' }],
+  });
+};
+
+const countEnrollments = async (): Promise<LocalReply> => {
+  const { count, error } = await supabase.from('enrollments').select('id', { count: 'exact', head: true });
+  if (error) {
+    console.error(JSON.stringify({ event: 'kiki_local_count_enrollments_failed', code: error.code }));
+    return reply('Enrollments could not be counted.');
+  }
+  const value = count ?? 0;
+  return reply(`There are ${value} enrollment(s).`, {
+    stats: [{ label: 'Enrollments', value: String(value) }],
+    links: [{ label: 'Enrollments', path: '/admin/enrollments' }],
   });
 };
 

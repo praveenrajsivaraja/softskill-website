@@ -167,24 +167,41 @@ const ProgramSales = () => {
 
       <section className="space-y-3">
         <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-          <TrendingUp className="h-5 w-5 text-red-600" />
-          Statistics
+          <ShoppingBag className="h-5 w-5 text-red-600" />
+          More
         </h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: 'Paid revenue', value: formatCurrency(summary.paidRevenue) },
-            { label: 'Paid orders', value: summary.paidOrderCount.toLocaleString() },
-            { label: 'Average order', value: formatCurrency(summary.averageOrderValue) },
-            { label: 'Programs sold', value: summary.programsSold.toLocaleString() },
-          ].map((stat) => (
-            <Card key={stat.label}>
-              <CardContent className="p-5">
-                <p className="text-sm text-gray-600">{stat.label}</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{stat.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue by program</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {summary.programTotals.length === 0 ? (
+              <p className="text-sm text-gray-500">No paid program sales yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Program</TableHead>
+                    <TableHead>Units sold</TableHead>
+                    <TableHead>Revenue</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {summary.programTotals.map((program) => (
+                    <TableRow key={program.courseId}>
+                      <TableCell>{program.title}</TableCell>
+                      <TableCell>{program.unitsSold}</TableCell>
+                      <TableCell>{formatCurrency(program.revenue)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            <p className="mt-4 text-sm text-gray-500">
+              {sales.length - summary.paidOrderCount} order(s) are still unpaid, failed, or cancelled. Statistics count confirmed and completed orders.
+            </p>
+          </CardContent>
+        </Card>
       </section>
 
       <section className="space-y-3">
@@ -252,42 +269,26 @@ const ProgramSales = () => {
 
       <section className="space-y-3">
         <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-          <ShoppingBag className="h-5 w-5 text-red-600" />
-          More
+          <TrendingUp className="h-5 w-5 text-red-600" />
+          Statistics
         </h3>
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue by program</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {summary.programTotals.length === 0 ? (
-              <p className="text-sm text-gray-500">No paid program sales yet.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Program</TableHead>
-                    <TableHead>Units sold</TableHead>
-                    <TableHead>Revenue</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {summary.programTotals.map((program) => (
-                    <TableRow key={program.courseId}>
-                      <TableCell>{program.title}</TableCell>
-                      <TableCell>{program.unitsSold}</TableCell>
-                      <TableCell>{formatCurrency(program.revenue)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            <p className="mt-4 text-sm text-gray-500">
-              {sales.length - summary.paidOrderCount} order(s) are still unpaid, failed, or cancelled. Statistics count confirmed and completed orders.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Paid revenue', value: formatCurrency(summary.paidRevenue) },
+            { label: 'Paid orders', value: summary.paidOrderCount.toLocaleString() },
+            { label: 'Average order', value: formatCurrency(summary.averageOrderValue) },
+            { label: 'Programs sold', value: summary.programsSold.toLocaleString() },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardContent className="p-5">
+                <p className="text-sm text-gray-600">{stat.label}</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{stat.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </section>
+
     </div>
   );
 };

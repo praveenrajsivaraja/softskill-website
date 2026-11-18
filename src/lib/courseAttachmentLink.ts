@@ -67,30 +67,30 @@ export const isGoogleDriveAttachmentUrl = (value: string): boolean => {
   return isGoogleHost(value) !== null;
 };
 
-const readDriveFile = (url: URL): { id: string; kind: DriveFileKind } | null => {
+const readDriveFile = (url: URL): { id: string; kind: DriveFileKind; isPublished: boolean } | null => {
   const pathPatterns: Array<{ kind: DriveFileKind; pattern: RegExp }> = [
-    { kind: 'file', pattern: /\/file\/d\/([a-zA-Z0-9_-]+)/ },
-    { kind: 'document', pattern: /\/document\/d\/([a-zA-Z0-9_-]+)/ },
-    { kind: 'spreadsheet', pattern: /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/ },
-    { kind: 'presentation', pattern: /\/presentation\/d\/([a-zA-Z0-9_-]+)/ },
+    { kind: 'file', pattern: /\/file\/(?:u\/\d+\/)?d\/([a-zA-Z0-9_-]+)/ },
+    { kind: 'document', pattern: /\/document\/(?:u\/\d+\/)?d\/(?:e\/)?([a-zA-Z0-9_-]+)/ },
+    { kind: 'spreadsheet', pattern: /\/spreadsheets\/(?:u\/\d+\/)?d\/(?:e\/)?([a-zA-Z0-9_-]+)/ },
+    { kind: 'presentation', pattern: /\/presentation\/(?:u\/\d+\/)?d\/(?:e\/)?([a-zA-Z0-9_-]+)/ },
   ];
 
   for (const pathPattern of pathPatterns) {
     const match = url.pathname.match(pathPattern.pattern);
     if (match) {
-      return { id: match[1], kind: pathPattern.kind };
+      return { id: match[1], kind: pathPattern.kind, isPublished: /\/d\/e\//.test(url.pathname) };
     }
   }
 
   const queryId = url.searchParams.get('id');
   if (queryId && /^[a-zA-Z0-9_-]+$/.test(queryId)) {
-    return { id: queryId, kind: 'file' };
+    return { id: queryId, kind: 'file', isPublished: false };
   }
 
   if (bareHost(url.hostname).endsWith('googleusercontent.com')) {
     const hostedFile = url.pathname.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (hostedFile) {
-      return { id: hostedFile[1], kind: 'file' };
+      return { id: hostedFile[1], kind: 'file', isPublished: false };
     }
   }
 
@@ -215,10 +215,13 @@ export const buildDocumentEmbedUrl = (driveUrl: string): string | null => {
     return `https://docs.google.com/spreadsheets/d/${driveFile.id}/preview`;
   }
   if (driveFile.kind === 'presentation') {
-    // /preview opens the Slides editor. In this site's iframe that editor shows
-    // "Google Docs encountered an error" until the file has been opened in Drive.
-    // /embed is the slideshow player and renders on the first open.
-    return `https://docs.google.com/presentation/d/${driveFile.id}/embed?start=false&loop=false&delayms=3000`;
+    // A published deck uses the slideshow player. Any other Slides link, including
+    // an address-bar link with /u/0/, uses /preview so a file already opened in
+    // Drive can render with the current Google session.
+    if (driveFile.isPublished) {
+      return `https://docs.google.com/presentation/d/e/${driveFile.id}/embed?start=false&loop=false&delayms=3000`;
+    }
+    return `https://docs.google.com/presentation/d/${driveFile.id}/preview`;
   }
 
   return `https://drive.google.com/file/d/${driveFile.id}/preview`;

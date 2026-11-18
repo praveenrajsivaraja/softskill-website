@@ -323,7 +323,7 @@ const KikiAssistant = () => {
         </button>
       )}
       {isOpen && (
-        <section className="fixed inset-0 z-[80] flex flex-col bg-white lg:inset-auto lg:bottom-5 lg:right-5 lg:h-[620px] lg:w-[400px] lg:overflow-hidden lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-2xl">
+        <section className="fixed inset-0 z-[80] flex flex-col bg-white lg:inset-auto lg:bottom-5 lg:right-5 lg:h-[620px] lg:max-h-[calc(100vh-2.5rem)] lg:w-[400px] lg:overflow-hidden lg:rounded-2xl lg:border lg:border-gray-200 lg:shadow-2xl">
           <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
             <div>
               <h2 className="text-base font-semibold text-gray-900">KIKI</h2>
@@ -411,12 +411,56 @@ interface MessageBubbleProps {
   onAsk: (question: string) => void;
 }
 
+const replyBlocks = (text: string) => {
+  const blocks: Array<{ kind: 'text' | 'points'; lines: string[] }> = [];
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) {
+      continue;
+    }
+    const isPoint = line.startsWith('→') || line.startsWith('->');
+    const content = line.replace(/^(?:→|->)\s*/, '');
+    const previous = blocks[blocks.length - 1];
+    if (isPoint && previous?.kind === 'points') {
+      previous.lines.push(content);
+      continue;
+    }
+    blocks.push({ kind: isPoint ? 'points' : 'text', lines: [content] });
+  }
+  return blocks;
+};
+
+const ReplyBody = ({ text, isUser }: { text: string; isUser: boolean }) => {
+  const blocks = replyBlocks(text);
+  if (isUser || blocks.length === 0 || (blocks.length === 1 && blocks[0].kind === 'text')) {
+    return <p className="whitespace-pre-wrap">{text}</p>;
+  }
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, blockIndex) => (
+        block.kind === 'text' ? (
+          <p key={`${block.lines[0]}-${blockIndex}`}>{block.lines[0]}</p>
+        ) : (
+          <ul key={`points-${blockIndex}`} className="space-y-1.5">
+            {block.lines.map((line, lineIndex) => (
+              <li key={`${line}-${lineIndex}`} className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0 font-semibold text-kiki-purple-600" aria-hidden="true">→</span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      ))}
+    </div>
+  );
+};
+
 const MessageBubble = ({ message, isAdmin, onEdit, onRemove, onConfirm, onAsk }: MessageBubbleProps) => {
   const isUser = message.role === 'user';
   const columns = message.preview ? [...new Set(message.preview.rows.flatMap((row) => Object.keys(row)))] : [];
   return (
     <article className={`max-w-[95%] rounded-2xl px-3 py-2 text-sm ${isUser ? 'ml-auto bg-kiki-purple-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      <p className="whitespace-pre-wrap">{message.text}</p>
+      <ReplyBody text={message.text} isUser={isUser} />
       {message.stats && message.stats.length > 0 && (
         <div className="mt-2 grid grid-cols-2 gap-2">
           {message.stats.map((stat) => (

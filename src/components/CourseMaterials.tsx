@@ -119,6 +119,7 @@ const CourseMaterials = ({ courseId, documents, canUsePurchasedActions }: Course
               className="h-[70vh] w-full rounded-md border"
               allow="fullscreen"
               allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
             />
           )}
           {canUsePurchasedActions && (
