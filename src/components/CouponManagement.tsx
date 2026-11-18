@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Edit, Trash2, Tag, Loader2 } from 'lucide-react';
 import CouponForm from './CouponForm';
+import DownloadReportButton from '@/components/DownloadReportButton';
+import { couponReportSheet } from '@/lib/adminScreenReports';
 
 interface Coupon {
   id: string;
@@ -261,6 +263,26 @@ const CouponManagement = () => {
                 Create and manage discount coupons for courses
               </CardDescription>
             </div>
+            <div className="flex items-center gap-2">
+            <DownloadReportButton
+              filename="coupons-report.xls"
+              sheets={[couponReportSheet(coupons.map((coupon) => {
+                const assignedCourse = coupon.course_restrictions && coupon.course_restrictions.length > 0
+                  ? courses.find((course) => course.id === coupon.course_restrictions?.[0])
+                  : null;
+                return {
+                  code: coupon.code,
+                  discountType: coupon.discount_type === 'fixed' ? 'Fixed' : 'Percentage',
+                  discount: coupon.discount_type === 'fixed' ? `₹${coupon.discount_amount}` : `${coupon.discount_amount}%`,
+                  course: assignedCourse ? assignedCourse.title : 'All Courses',
+                  usage: `${coupon.used_count}${coupon.usage_limit ? `/${coupon.usage_limit}` : ''}`,
+                  status: coupon.is_active ? 'Active' : 'Inactive',
+                  newUsersOnly: coupon.new_users_only === true,
+                  validUntil: coupon.valid_until ? new Date(coupon.valid_until).toLocaleDateString() : '',
+                };
+              }))]}
+              disabled={coupons.length === 0}
+            />
             <Button 
               onClick={() => handleOpenDialog()} 
               className="flex items-center gap-2"
@@ -268,6 +290,7 @@ const CouponManagement = () => {
               <Plus className="h-4 w-4" />
               Add Coupon
             </Button>
+            </div>
           </div>
         </CardHeader>
 

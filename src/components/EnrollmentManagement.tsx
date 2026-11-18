@@ -10,7 +10,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { UserCheck, Calendar, BookOpen, RefreshCw, RotateCcw, UserPlus, Trash2, Loader2 } from 'lucide-react';
 import PaymentScreenshotViewer from './PaymentScreenshotViewer';
 import AdminSearchableTab from './AdminSearchableTab';
+import DownloadReportButton from '@/components/DownloadReportButton';
 import { filterRecordsBySearch } from '@/lib/adminSearch';
+import { enrollmentReportSheets } from '@/lib/adminScreenReports';
 import ManualEnrollmentDialog from './ManualEnrollmentDialog';
 
 interface Enrollment {
@@ -545,6 +547,26 @@ const EnrollmentManagement = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const enrollmentReport = useMemo(() => enrollmentReportSheets(
+    filteredOrders.map((order) => ({
+      studentName: order.user_profile?.full_name || 'N/A',
+      email: order.user_profile?.email || 'N/A',
+      courses: order.order_items.map((item) => item.course.title).join(', '),
+      amount: `₹${order.total_amount}`,
+      requested: formatDate(order.created_at),
+    })),
+    filteredEnrollments.map((enrollment) => ({
+      studentName: enrollment.student?.full_name || 'N/A',
+      email: enrollment.student?.email || '',
+      course: enrollment.course?.title || '',
+      lessons: `${enrollment.completed_lessons || 0}/${enrollment.course?.total_lessons || 0}`,
+      status: enrollment.status,
+      progress: `${enrollment.progress || 0}%`,
+      enrolled: formatDate(enrollment.enrolled_at),
+      completed: formatDate(enrollment.completed_at),
+    })),
+  ), [filteredOrders, filteredEnrollments]);
+
   if (isLoading) {
     return (
       <Card>
@@ -569,7 +591,8 @@ const EnrollmentManagement = () => {
           <CardDescription>
             Manage student enrollments and approve new requests (MBTI test orders are auto-approved)
           </CardDescription>
-          <div className="flex gap-2 mt-4">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-2">
             <Button
               variant={activeTab === 'requests' ? 'default' : 'outline'}
               onClick={() => setActiveTab('requests')}
@@ -602,6 +625,12 @@ const EnrollmentManagement = () => {
                 Add Enrollment
               </Button>
             )}
+            </div>
+            <DownloadReportButton
+              filename="enrollments-report.xls"
+              sheets={enrollmentReport}
+              disabled={filteredOrders.length === 0 && filteredEnrollments.length === 0}
+            />
           </div>
         </CardHeader>
         <CardContent>

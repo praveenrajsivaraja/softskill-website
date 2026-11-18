@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { enrollmentCompletionPercent } from '@/lib/programSales';
+import DownloadReportButton from '@/components/DownloadReportButton';
+import { dashboardReportSheet } from '@/lib/adminScreenReports';
 import { 
   Users, 
   BookOpen, 
@@ -201,6 +203,18 @@ const AdminNotifications = () => {
             <p className="text-red-100">Monitor and manage your learning platform</p>
           </div>
           <div className="flex items-center gap-4">
+            <DownloadReportButton
+              filename="dashboard-report.xls"
+              sheets={[dashboardReportSheet([
+                { label: 'Users', value: String(stats.totalUsers) },
+                { label: 'Courses', value: String(stats.totalCourses) },
+                { label: 'Paid orders', value: String(stats.totalOrders) },
+                { label: 'Paid revenue', value: `₹${stats.totalRevenue}` },
+                { label: 'Recent users', value: String(stats.recentUsers) },
+                { label: 'Active enrollments', value: String(stats.activeEnrollments) },
+                { label: 'Completion', value: `${stats.completionPercent}%` },
+              ])]}
+            />
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
               <Activity className="w-4 h-4 mr-1" />
               Live Dashboard

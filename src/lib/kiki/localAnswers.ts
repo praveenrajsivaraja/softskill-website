@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
-import { describeIntent, matchQuestion, searchKeywords, type AssistantIntent } from '@/lib/kiki/routes';
+import { excelDownloadFromReport, loadAdminExcelReport } from '@/lib/kiki/adminExcelExport';
+import { describeIntent, matchQuestion, reportKindFromQuestion, searchKeywords, type AssistantIntent } from '@/lib/kiki/routes';
+import type { ExcelDownload } from '@/lib/excelReport';
 import { buildSaleOrders, summarizeProgramSales } from '@/lib/programSales';
 
 export interface LocalReply {
@@ -7,6 +9,7 @@ export interface LocalReply {
   table: { columns: string[]; rows: string[][] } | null;
   stats: { label: string; value: string }[] | null;
   links: { label: string; path: string }[];
+  report: ExcelDownload | null;
 }
 
 type AppRole = 'guest' | 'student' | 'instructor' | 'admin';
@@ -23,6 +26,31 @@ const text = (value: unknown, fallback = '—'): string => {
 
 const normalize = (question: string) => question.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
+const reportFromAnswer = (extra: Partial<Omit<LocalReply, 'text'>>): ExcelDownload | null => {
+  if (extra.report) {
+    return extra.report;
+  }
+  const sheets: ExcelDownload['sheets'] = [];
+  if (extra.stats && extra.stats.length > 0) {
+    sheets.push({
+      name: 'Summary',
+      headers: ['Metric', 'Value'],
+      rows: extra.stats.map((stat) => [stat.label, stat.value]),
+    });
+  }
+  if (extra.table && extra.table.rows.length > 0) {
+    sheets.push({
+      name: 'Details',
+      headers: extra.table.columns,
+      rows: extra.table.rows,
+    });
+  }
+  if (sheets.length === 0) {
+    return null;
+  }
+  return { filename: 'kiki-details.xls', sheets };
+};
+
 const reply = (
   textValue: string,
   extra: Partial<Omit<LocalReply, 'text'>> = {},
@@ -31,6 +59,7 @@ const reply = (
   table: extra.table ?? null,
   stats: extra.stats ?? null,
   links: extra.links ?? [],
+  report: reportFromAnswer(extra),
 });
 
 const denied = () => reply('You do not have access to that information.');
@@ -58,7 +87,7 @@ export const answerLocally = async (
   if ('clarify' in matched) {
     return reply(`Do you want ${describeIntent(matched.clarify[0])} or ${describeIntent(matched.clarify[1])}?`);
   }
-  return replyForIntent(matched.intent, role === 'admin', userId);
+  return replyForIntent(matched.intent, question, role === 'admin', userId);
 };
 
 const adminOnly = (textValue: string, path: string, label: string, isAdmin: boolean): LocalReply => {
@@ -70,6 +99,7 @@ const adminOnly = (textValue: string, path: string, label: string, isAdmin: bool
 
 const replyForIntent = (
   intent: AssistantIntent,
+  question: string,
   isAdmin: boolean,
   userId: string | null,
 ): Promise<LocalReply> | LocalReply => {
@@ -145,6 +175,8 @@ const replyForIntent = (
       );
     case 'sales':
       return isAdmin ? totalSales() : denied();
+    case 'export_report':
+      return isAdmin ? exportReport(question) : denied();
     case 'coupon':
       return adminOnly('Discount codes live on Coupons.\n→ Open Coupons to add or edit a code', '/admin/coupons', 'Coupons', isAdmin);
     case 'homepage':
@@ -189,6 +221,29 @@ const replyForIntent = (
       const unmetIntent: never = intent;
       throw new Error(`Unhandled assistant question: ${String(unmetIntent)}`);
     }
+  }
+};
+
+const exportReport = async (question: string): Promise<LocalReply> => {
+  const kind = reportKindFromQuestion(question);
+  if (!kind) {
+    return reply('Choose a report to export as Excel.\n→ Users\n→ Sales\n→ Courses\n→ Progress\n→ Enrollments\n→ Assessments\n→ Coupons\n→ Career tests\n→ Dashboard');
+  }
+  try {
+    const loaded = await loadAdminExcelReport(kind);
+    if (!loaded) {
+      return reply('That report could not be exported.');
+    }
+    return reply(loaded.text, {
+      links: loaded.links,
+      report: excelDownloadFromReport(loaded),
+    });
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: 'kiki_excel_export_failed',
+      message: error instanceof Error ? error.message : 'unknown',
+    }));
+    return reply('That report could not be exported.');
   }
 };
 

@@ -33,6 +33,8 @@ import type { LearnerAssessmentQuestion } from '@/lib/assessmentApi';
 import { importAssessments } from '@/lib/adminSheetImport';
 import { assessmentSheetHeaders, assessmentSheetSample } from '@/lib/sheetTemplates';
 import AdminSheetMenu from '@/components/AdminSheetMenu';
+import DownloadReportButton from '@/components/DownloadReportButton';
+import { assessmentReportSheet } from '@/lib/adminScreenReports';
 
 interface CourseOption {
   id: string;
@@ -284,6 +286,18 @@ const AssessmentManagement = () => {
     );
   }
 
+  const programTitle = courses.find((course) => course.id === courseId)?.title ?? '';
+  const assessmentReport = [assessmentReportSheet(assessments.map((assessment) => ({
+    program: programTitle,
+    title: assessment.title,
+    description: assessment.description,
+    durationMinutes: assessment.durationMinutes,
+    passingScore: assessment.passingScore,
+    sequence: assessment.sequence,
+    isPublished: assessment.isPublished,
+    isActive: assessment.isActive,
+  })))];
+
   return (
     <div className="space-y-6">
       <div>
@@ -315,6 +329,8 @@ const AssessmentManagement = () => {
             </Button>
           )}
         </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+        <DownloadReportButton filename="assessments-report.xls" sheets={assessmentReport} disabled={assessments.length === 0} />
         <AdminSheetMenu
           label="New assessment"
           singleLabel="Create single assessment"
@@ -326,6 +342,7 @@ const AssessmentManagement = () => {
           importRows={importAssessments}
           onComplete={() => { if (courseId) void loadAssessments(courseId); }}
         />
+        </div>
       </div>
       <p className="text-sm text-gray-500">
         Use the sample CSV. One row is one question. Rows with the same program and assessment title update that assessment. Set program_title to a saved course title.

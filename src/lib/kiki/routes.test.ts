@@ -51,6 +51,10 @@ test('questions match by keyword instead of one fixed phrase', () => {
   assert.equal(intentOf('total sales'), 'sales');
   assert.equal(intentOf('what is the total revenue'), 'sales');
   assert.equal(intentOf('my learning'), 'my_progress');
+  assert.equal(intentOf('Download the sales report as Excel'), 'export_report');
+  assert.equal(intentOf('download the users report'), 'export_report');
+  assert.equal(intentOf('export student progress'), 'export_report');
+  assert.equal(intentOf('download my scores'), 'my_scores');
 });
 
 test('words outside the catalog become course search keywords', () => {

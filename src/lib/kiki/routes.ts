@@ -159,6 +159,7 @@ const knownQuestions = (isAdmin: boolean): string[] => {
     'How do I add a course?',
     'How do I upload course materials?',
     'Where do I see student scores?',
+    'Download the sales report as Excel',
     ...shared,
   ];
 };
@@ -181,7 +182,58 @@ const rankedByQuestion = (question: string, isAdmin: boolean): string[] => {
     .map((entry) => entry.item);
 };
 
+export type AdminReportKind =
+  | 'users'
+  | 'sales'
+  | 'courses'
+  | 'progress'
+  | 'enrollments'
+  | 'assessments'
+  | 'coupons'
+  | 'career'
+  | 'dashboard';
+
+const exportWords = new Set(['report', 'excel', 'spreadsheet', 'export']);
+const exportBlockedWords = new Set(['material', 'document', 'file', 'pdf', 'thumbnail', 'image']);
+const reportSubjects: Array<[AdminReportKind, string[]]> = [
+  ['progress', ['progress', 'score']],
+  ['enrollments', ['enrollment']],
+  ['sales', ['sale', 'revenue', 'order']],
+  ['assessments', ['assessment']],
+  ['coupons', ['coupon', 'discount']],
+  ['career', ['career']],
+  ['dashboard', ['dashboard', 'overview']],
+  ['users', ['user', 'student', 'people', 'account']],
+  ['courses', ['course', 'program']],
+];
+
+const reportKindFromTokens = (tokens: Set<string>): AdminReportKind | 'all' | null => {
+  for (const [kind, words] of reportSubjects) {
+    if (words.some((word) => tokens.has(word))) {
+      return kind;
+    }
+  }
+  if (tokens.has('all') || tokens.has('everything')) {
+    return 'all';
+  }
+  return null;
+};
+
+export const reportKindFromQuestion = (question: string): AdminReportKind | 'all' | null =>
+  reportKindFromTokens(new Set(matchTokens(question)));
+
+const isExportQuestion = (tokens: Set<string>): boolean => {
+  if ([...tokens].some((token) => exportBlockedWords.has(token)) || tokens.has('my')) {
+    return false;
+  }
+  if ([...exportWords].some((word) => tokens.has(word))) {
+    return true;
+  }
+  return tokens.has('download') && reportKindFromTokens(tokens) !== null;
+};
+
 export type AssistantIntent =
+  | 'export_report'
   | 'highest_enrollment'
   | 'average_score'
   | 'inactive_users'
@@ -265,6 +317,7 @@ const intentRules: IntentRule[] = [
 ];
 
 const intentLabels: Record<AssistantIntent, string> = {
+  export_report: 'an Excel report',
   highest_enrollment: 'the course with the highest enrollment',
   average_score: 'the average assessment score',
   inactive_users: 'inactive users',
@@ -308,6 +361,7 @@ const catalogWords = new Set([
   'my', 'new', 'help', 'overview', 'homepage', 'cart', 'checkout', 'highest',
   'average', 'inactive', 'registered', 'upload', 'delete', 'edit', 'manage',
   'sale', 'revenue', 'coupon', 'discount', 'thumbnail', 'image', 'progress',
+  'report', 'excel', 'spreadsheet', 'export', 'download',
   'learn', 'learning', 'join', 'take', 'find', 'check', 'see', 'work', 'passing',
   'size', 'aspect', 'ratio', 'menu', 'screen', 'navigate', 'signup', 'register',
   'account', 'pay', 'material', 'document', 'file', 'pdf', 'career', 'test',
@@ -389,6 +443,9 @@ export const matchQuestion = (question: string): QuestionMatch | QuestionClarifi
   const tokens = new Set(matchTokens(question));
   if (tokens.size === 0) {
     return null;
+  }
+  if (isExportQuestion(tokens)) {
+    return { intent: 'export_report' };
   }
   const ranked = intentRules
     .map((item, index) => ({ item, index, score: scoreRule(tokens, item) }))

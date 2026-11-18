@@ -16,6 +16,8 @@ import AdminSearchableTab from './AdminSearchableTab';
 import { filterRecordsBySearch } from '@/lib/adminSearch';
 import AdminSectionManagement from './AdminSectionManagement';
 import { COURSE_TYPE_CAREER_TEST, COURSE_TYPE_COURSE, linesToList, listToLines } from '@/lib/courseCatalog';
+import { courseReportSheet } from '@/lib/adminScreenReports';
+import DownloadReportButton from '@/components/DownloadReportButton';
 import { fetchPaidCourseAttachments } from '@/lib/courseAttachment';
 import {
   createDocumentDraft,
@@ -105,6 +107,18 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
       course.category,
     ]);
   }, [courses, catalog, courseSearch]);
+
+  const courseReport = useMemo(() => [courseReportSheet(filteredCourses.map((course) => ({
+    title: course.title,
+    description: course.description,
+    price: course.price,
+    originalPrice: course.original_price,
+    category: course.category,
+    duration: course.duration,
+    status: course.status,
+    lessons: course.total_lessons,
+    type: course.course_type === COURSE_TYPE_CAREER_TEST ? 'Career test' : 'Course',
+  })))], [filteredCourses]);
 
   const fetchCourses = async () => {
     try {
@@ -364,6 +378,12 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                         Download the sample, add one row per item, and save it as CSV. A matching title is updated.
                       </p>
                     </div>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                    <DownloadReportButton
+                      filename={catalog === 'career_test' ? 'career-tests-report.xls' : 'courses-report.xls'}
+                      sheets={courseReport}
+                      disabled={filteredCourses.length === 0}
+                    />
                     <AdminSheetMenu
                       label={catalog === 'career_test' ? 'Add career test' : 'Add course'}
                       singleLabel={catalog === 'career_test' ? 'Create single career test' : 'Create single course'}
@@ -375,6 +395,7 @@ const CourseManagement = ({ catalog = 'all' }: CourseManagementProps) => {
                       importRows={(rows) => importCourses(rows, catalog === 'career_test' ? COURSE_TYPE_CAREER_TEST : COURSE_TYPE_COURSE)}
                       onComplete={fetchCourses}
                     />
+                    </div>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                       <DialogContent className="max-w-2xl">
                         <DialogHeader>

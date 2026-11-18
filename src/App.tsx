@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { OnlinePresenceProvider } from "@/contexts/OnlinePresence";
 import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import About from "./pages/About";
@@ -46,26 +47,28 @@ const App = () => {
         <BrowserRouter>
           <ScrollToTop />
           <AuthProvider>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Index />} />
-                <Route path="about" element={<About />} />
-                <Route path="programs" element={<Programs />} />
-                <Route path="course/:courseId" element={<CourseDetail />} />
-                <Route path="cart" element={<Cart />} />
-                <Route path="checkout" element={<Checkout />} />
-                <Route path="enrolled-courses" element={<EnrolledCourses />} />
-                <Route path="career-test" element={<CareerTest />} />
-                <Route path="mbti-test" element={<MBTITestPage />} />
-                <Route path="drive-viewer" element={<DriveViewer />} />
-                <Route path="*" element={<NotFound />} />
-              </Route>
-              <Route path="login" element={<Login />} />
-              <Route path="auth/confirm" element={<AuthConfirm />} />
-              <Route path="admin-login" element={<AdminLogin />} />
-              <Route path="admin/*" element={<AdminDashboard />} />
-            </Routes>
-            <KikiAssistant />
+            <OnlinePresenceProvider>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Index />} />
+                  <Route path="about" element={<About />} />
+                  <Route path="programs" element={<Programs />} />
+                  <Route path="course/:courseId" element={<CourseDetail />} />
+                  <Route path="cart" element={<Cart />} />
+                  <Route path="checkout" element={<Checkout />} />
+                  <Route path="enrolled-courses" element={<EnrolledCourses />} />
+                  <Route path="career-test" element={<CareerTest />} />
+                  <Route path="mbti-test" element={<MBTITestPage />} />
+                  <Route path="drive-viewer" element={<DriveViewer />} />
+                  <Route path="*" element={<NotFound />} />
+                </Route>
+                <Route path="login" element={<Login />} />
+                <Route path="auth/confirm" element={<AuthConfirm />} />
+                <Route path="admin-login" element={<AdminLogin />} />
+                <Route path="admin/*" element={<AdminDashboard />} />
+              </Routes>
+              <KikiAssistant />
+            </OnlinePresenceProvider>
           </AuthProvider>
         </BrowserRouter>
         <Toaster />

@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import CourseManagement from '@/components/CourseManagement';
 import AdminSheetMenu from '@/components/AdminSheetMenu';
+import DownloadReportButton from '@/components/DownloadReportButton';
+import { careerSectionReportSheet } from '@/lib/adminScreenReports';
 import { importCareerSections } from '@/lib/adminSheetImport';
 import { careerSectionSheetHeaders, careerSectionSheetSample } from '@/lib/sheetTemplates';
 import type { Database } from '@/integrations/supabase/types';
@@ -182,6 +184,16 @@ const CareerTestAdmin = () => {
               onCreateOne={resetForm}
               importRows={importCareerSections}
               onComplete={fetchSections}
+            />
+            <DownloadReportButton
+              filename="career-test-sections-report.xls"
+              sheets={[careerSectionReportSheet(sections.map((section) => ({
+                sectionKey: section.section_key,
+                title: section.title ?? '',
+                description: section.description,
+                orderIndex: section.order_index,
+              })))]}
+              disabled={sections.length === 0}
             />
             {editingSection && (
               <Button variant="outline" onClick={resetForm}>

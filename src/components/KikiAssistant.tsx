@@ -4,6 +4,7 @@ import { Loader2, MessageCircle, Paperclip, Send, Trash2, X } from 'lucide-react
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { describeSheetImport } from '@/lib/spreadsheet';
+import { downloadExcelReport, type ExcelDownload } from '@/lib/excelReport';
 import {
   confirmProposedRows,
   detectImportKind,
@@ -54,6 +55,7 @@ interface ChatMessage {
   table: AssistantTable | null;
   stats: AssistantStat[] | null;
   links: AssistantLink[];
+  report: ExcelDownload | null;
   preview: ImportPreview | null;
   suggestions: string[];
 }
@@ -77,7 +79,7 @@ const timeLabel = (value: string) => new Date(value).toLocaleTimeString([], { ho
 const nextMessage = (
   role: ChatMessage['role'],
   text: string,
-  extra: Partial<Pick<ChatMessage, 'table' | 'stats' | 'links' | 'preview' | 'suggestions'>> = {},
+  extra: Partial<Pick<ChatMessage, 'table' | 'stats' | 'links' | 'report' | 'preview' | 'suggestions'>> = {},
 ): ChatMessage => ({
   id: crypto.randomUUID(),
   role,
@@ -86,6 +88,7 @@ const nextMessage = (
   table: extra.table ?? null,
   stats: extra.stats ?? null,
   links: extra.links ?? [],
+  report: extra.report ?? null,
   preview: extra.preview ?? null,
   suggestions: extra.suggestions ?? [],
 });
@@ -191,8 +194,12 @@ const KikiAssistant = () => {
           table: local.table,
           stats: local.stats,
           links: sanitizeAssistantLinks(local.links, isAdmin),
+          report: local.report,
           suggestions,
         }));
+        if (local.report?.downloadNow) {
+          downloadExcelReport(local.report.filename, local.report.sheets);
+        }
         return;
       }
       append(nextMessage('assistant', notUnderstoodText, { suggestions }));
@@ -472,6 +479,15 @@ const MessageBubble = ({ message, isAdmin, onEdit, onRemove, onConfirm, onAsk }:
         </div>
       )}
       {message.table && <DataTable table={message.table} />}
+      {message.report && (
+        <button
+          type="button"
+          onClick={() => downloadExcelReport(message.report.filename, message.report.sheets)}
+          className="mt-2 rounded-full bg-white px-3 py-1 text-xs font-medium text-kiki-purple-700"
+        >
+          Download report
+        </button>
+      )}
       {message.links.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {message.links.map((link) => (

@@ -7,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Receipt, ShoppingBag, TrendingUp } from 'lucide-react';
 import AdminSearchableTab from './AdminSearchableTab';
+import DownloadReportButton from '@/components/DownloadReportButton';
 import { filterRecordsBySearch } from '@/lib/adminSearch';
+import { salesReportSheets } from '@/lib/adminScreenReports';
 import {
   buildSaleOrders,
   summarizeProgramSales,
@@ -149,6 +151,19 @@ const ProgramSales = () => {
     ]);
   }, [sales, searchTerm, selectedCourseId]);
 
+  const salesReport = useMemo(() => salesReportSheets(
+    [
+      { label: 'Paid revenue', value: formatCurrency(summary.paidRevenue) },
+      { label: 'Paid orders', value: summary.paidOrderCount.toLocaleString() },
+      { label: 'Average order', value: formatCurrency(summary.averageOrderValue) },
+      { label: 'Programs sold', value: summary.programsSold.toLocaleString() },
+    ],
+    summary.programTotals,
+    visibleSales,
+    formatCurrency,
+    formatDateTime,
+  ), [summary, visibleSales]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16 text-gray-600">
@@ -160,10 +175,35 @@ const ProgramSales = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Program sales</h2>
-        <p className="text-sm text-gray-600">Paid orders, the programs in each order, and revenue by program.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Program sales</h2>
+          <p className="text-sm text-gray-600">Paid orders, the programs in each order, and revenue by program.</p>
+        </div>
+        <DownloadReportButton filename="sales-report.xls" sheets={salesReport} disabled={sales.length === 0} />
       </div>
+
+      <section className="space-y-3">
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+          <TrendingUp className="h-5 w-5 text-red-600" />
+          Statistics
+        </h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Paid revenue', value: formatCurrency(summary.paidRevenue) },
+            { label: 'Paid orders', value: summary.paidOrderCount.toLocaleString() },
+            { label: 'Average order', value: formatCurrency(summary.averageOrderValue) },
+            { label: 'Programs sold', value: summary.programsSold.toLocaleString() },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardContent className="p-5">
+                <p className="text-sm text-gray-600">{stat.label}</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{stat.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
 
       <section className="space-y-3">
         <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
@@ -265,28 +305,6 @@ const ProgramSales = () => {
             </AdminSearchableTab>
           </CardContent>
         </Card>
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-          <TrendingUp className="h-5 w-5 text-red-600" />
-          Statistics
-        </h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: 'Paid revenue', value: formatCurrency(summary.paidRevenue) },
-            { label: 'Paid orders', value: summary.paidOrderCount.toLocaleString() },
-            { label: 'Average order', value: formatCurrency(summary.averageOrderValue) },
-            { label: 'Programs sold', value: summary.programsSold.toLocaleString() },
-          ].map((stat) => (
-            <Card key={stat.label}>
-              <CardContent className="p-5">
-                <p className="text-sm text-gray-600">{stat.label}</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{stat.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </section>
 
     </div>

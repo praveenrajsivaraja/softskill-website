@@ -9,6 +9,12 @@ import {
   reorderMenuItems,
   writeAdminMenuOrder,
 } from '@/lib/adminMenuOrder';
+import {
+  hasSeenAdminMenuTour,
+  markAdminMenuTourSeen,
+  tourStepsForMenu,
+} from '@/lib/adminMenuTour';
+import AdminMenuTour from '@/components/AdminMenuTour';
 import { 
   Users, 
   BookOpen, 
@@ -22,6 +28,7 @@ import {
   Receipt,
   Shield,
   GripVertical,
+  CircleHelp,
   X
 } from 'lucide-react';
 
@@ -102,11 +109,24 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
   const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
   const draggedPathRef = useRef<string | null>(null);
   const didDragRef = useRef(false);
+  const [isTourOpen, setIsTourOpen] = useState(false);
 
   useEffect(() => {
     const savedOrder = readAdminMenuOrder(user?.id, localStorage);
     setMenuItems(applySavedMenuOrder(defaultMenuItems, savedOrder));
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!isOpen || hasSeenAdminMenuTour(user?.id, localStorage)) {
+      return;
+    }
+    setIsTourOpen(true);
+  }, [isOpen, user?.id]);
+
+  const closeTour = () => {
+    markAdminMenuTourSeen(user?.id, localStorage);
+    setIsTourOpen(false);
+  };
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -130,14 +150,26 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
               <p className="text-xs text-gray-500">KIKI Learning Hub</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="lg:hidden text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsTourOpen(true)}
+              className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1"
+              aria-label="Show the menu guide"
+            >
+              <CircleHelp className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="lg:hidden text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
       
@@ -152,6 +184,7 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
           return (
             <Button
               key={item.path}
+              data-admin-tour={item.path}
               variant="ghost"
               draggable
               className={`w-full justify-start h-auto cursor-grab p-4 rounded-lg transition-all duration-200 active:cursor-grabbing ${
@@ -215,6 +248,9 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
           );
         })}
       </nav>
+      {isTourOpen && (
+        <AdminMenuTour steps={tourStepsForMenu(menuItems)} onClose={closeTour} />
+      )}
     </div>
   );
 };

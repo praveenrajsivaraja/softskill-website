@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOnlineUserIds } from '@/contexts/OnlinePresence';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,9 @@ import AdminSheetMenu from '@/components/AdminSheetMenu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Trash2, Loader2, RefreshCw } from 'lucide-react';
 import AdminSearchableTab from '@/components/AdminSearchableTab';
+import DownloadReportButton from '@/components/DownloadReportButton';
 import { filterRecordsBySearch } from '@/lib/adminSearch';
+import { userReportSheet } from '@/lib/adminScreenReports';
 import {
   enrollmentExpiresAt,
   summarizeUserLearning,
@@ -92,6 +95,7 @@ const UserManagement = () => {
   const [newUser, setNewUser] = useState({ email: '', full_name: '', password: '', role: 'student' as UserRole });
   const { toast } = useToast();
   const { user: signedInUser } = useAuth();
+  const onlineUserIds = useOnlineUserIds();
 
   useEffect(() => {
     fetchUsers();
@@ -108,6 +112,22 @@ const UserManagement = () => {
     ]),
     [users, userSearch],
   );
+
+  const userReport = useMemo(() => [userReportSheet(filteredUsers.map((user) => ({
+    email: user.email,
+    fullName: user.full_name,
+    phone: user.phone,
+    role: user.role,
+    isActive: user.is_active !== false,
+    currentCourses: user.learning.currentTitles.join(', '),
+    recentCourse: user.learning.recentCourseTitle ?? '',
+    enrolledAt: formatDate(user.learning.recentEnrolledAt),
+    expiresAt: user.learning.recentAccess === 'expired'
+      ? `Expired ${formatDate(user.learning.recentExpiresAt)}`
+      : formatDate(user.learning.recentExpiresAt),
+    lastLogin: canReadLastLogin ? (user.lastSignInAt ? formatDateTime(user.lastSignInAt) : 'Never') : 'Unavailable',
+    joined: formatDate(user.created_at),
+  })))], [filteredUsers, canReadLastLogin]);
 
   const fetchUsers = async () => {
     try {
@@ -449,6 +469,7 @@ const UserManagement = () => {
               importRows={(rows) => importUsers(rows, signedInUser?.id ?? null)}
               onComplete={fetchUsers}
             />
+            <DownloadReportButton filename="users-report.xls" sheets={userReport} disabled={filteredUsers.length === 0} />
             <Button
             onClick={refreshUsers}
             disabled={refreshing}
@@ -506,7 +527,17 @@ const UserManagement = () => {
                       )}
                       <div>
                         <div className="flex items-center gap-2">
-                          <span>{user.full_name || 'N/A'}</span>
+                          <span className="inline-flex items-center gap-1.5">
+                            {onlineUserIds.has(user.id) && (
+                              <span
+                                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-green-500"
+                                role="img"
+                                aria-label="Online"
+                                title="Online"
+                              />
+                            )}
+                            <span>{user.full_name || 'N/A'}</span>
+                          </span>
                           {isNewSiteUser(user.created_at) && <Badge className="bg-kiki-purple-100 text-kiki-purple-800">New</Badge>}
                         </div>
                         {user.phone && <p className="text-xs text-gray-500">{user.phone}</p>}

@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchAdminStudentProgress, isAssessmentStorageMissing, type AdminStudentProgress } from '@/lib/assessmentApi';
 import { describeAttemptAnswers, type StudentProgressView } from '@/lib/studentProgress';
+import { progressReportSheets } from '@/lib/adminScreenReports';
+import DownloadReportButton from '@/components/DownloadReportButton';
 
 const matchesSearch = (student: StudentProgressView, search: string): boolean => {
   const haystack = `${student.studentName} ${student.email} ${student.phone ?? ''}`.toLowerCase();
@@ -64,15 +66,19 @@ const StudentProgress = () => {
       programs: student.programs.filter((program) => courseId === 'all' || program.courseId === courseId),
     }))
     .filter((student) => student.programs.length > 0 && matchesSearch(student, search));
+  const progressReport = progressReportSheets(visibleStudents, progress.questionsByAssessmentId);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
-          <BarChart3 className="h-6 w-6" />
-          Student progress
-        </h2>
-        <p className="mt-1 text-gray-600">Review each student’s enrollment, assessment scores, answers, and the correct response.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+            <BarChart3 className="h-6 w-6" />
+            Student progress
+          </h2>
+          <p className="mt-1 text-gray-600">Review each student’s enrollment, assessment scores, answers, and the correct response.</p>
+        </div>
+        <DownloadReportButton filename="progress-report.xls" sheets={progressReport} disabled={loading || visibleStudents.length === 0} />
       </div>
       <div className="grid gap-3 md:grid-cols-[1fr_16rem]">
         <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, email, or phone" />
