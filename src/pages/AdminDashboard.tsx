@@ -15,6 +15,7 @@ import CareerTestAdmin from '@/components/CareerTestAdmin';
 import EnrollmentManagement from '@/components/EnrollmentManagement';
 import HomepageContentManagement from '@/components/HomepageContentManagement';
 import CouponManagement from '@/components/CouponManagement';
+import ProgramSales from '@/components/ProgramSales';
 import AdminNotifications from '@/components/AdminNotifications';
 import NotificationBell from '@/components/NotificationBell';
 
@@ -160,6 +161,7 @@ const AdminDashboard = () => {
               <Route path="/progress" element={<StudentProgress />} />
               <Route path="/career-test" element={<CareerTestAdmin />} />
               <Route path="/enrollments" element={<EnrollmentManagement />} />
+              <Route path="/sales" element={<ProgramSales />} />
               <Route path="/homepage" element={<HomepageContentManagement />} />
               <Route path="/coupons" element={<CouponManagement />} />
             </Routes>

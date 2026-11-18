@@ -19,6 +19,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const recordLastSignIn = async (userId: string, lastSignInAt: string | undefined) => {
+  if (!lastSignInAt) {
+    return;
+  }
+  const { error } = await supabase
+    .from('profiles')
+    .update({ last_sign_in_at: lastSignInAt })
+    .eq('id', userId);
+  if (error && error.code !== 'PGRST204' && error.code !== '42703') {
+    console.error(JSON.stringify({ event: 'record_last_sign_in_failed', code: error.code }));
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const signedInUserId = session.user.id;
         window.setTimeout(async () => {
           if (await accountIsActive(signedInUserId)) {
+            await recordLastSignIn(signedInUserId, session.user.last_sign_in_at);
             return;
           }
           await supabase.auth.signOut();

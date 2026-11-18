@@ -17,6 +17,7 @@ import { answerLocally } from '@/lib/kiki/localAnswers';
 import {
   followUpQuestions,
   hiddenAssistantPaths,
+  notUnderstoodText,
   sanitizeAssistantLinks,
   starterQuestions,
   type AssistantLink,
@@ -179,7 +180,6 @@ const KikiAssistant = () => {
     if (!content || isSending) {
       return;
     }
-    const history = [...messages, nextMessage('user', content)].slice(-10);
     setMessages((current) => [...current, nextMessage('user', content)]);
     setDraft('');
     setIsSending(true);
@@ -195,19 +195,10 @@ const KikiAssistant = () => {
         }));
         return;
       }
-      const payload = await askKiki({
-        mode: 'chat',
-        messages: history.map((message) => ({ role: message.role, content: message.text.slice(0, 2000) })),
-      });
-      append(nextMessage('assistant', payload.message || 'I do not have that information.', {
-        table: payload.table ?? null,
-        stats: payload.stats ?? null,
-        links: sanitizeAssistantLinks(payload.links ?? [], isAdmin),
-        suggestions,
-      }));
+      append(nextMessage('assistant', notUnderstoodText, { suggestions }));
     } catch (error) {
       console.error(JSON.stringify({ event: 'kiki_request_failed', code: error instanceof Error ? error.name : 'unknown' }));
-      append(nextMessage('assistant', 'I can answer questions about courses, enrollments, and scores. I could not reach the assistant service for that question.', {
+      append(nextMessage('assistant', notUnderstoodText, {
         suggestions: followUpQuestions(content, isAdmin),
       }));
     } finally {

@@ -117,6 +117,8 @@ const CourseMaterials = ({ courseId, documents, canUsePurchasedActions }: Course
               src={embedUrl}
               title={openDocument?.title ?? 'Course document'}
               className="h-[70vh] w-full rounded-md border"
+              allow="fullscreen"
+              allowFullScreen
             />
           )}
           {canUsePurchasedActions && (

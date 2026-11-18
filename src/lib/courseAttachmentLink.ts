@@ -215,7 +215,10 @@ export const buildDocumentEmbedUrl = (driveUrl: string): string | null => {
     return `https://docs.google.com/spreadsheets/d/${driveFile.id}/preview`;
   }
   if (driveFile.kind === 'presentation') {
-    return `https://docs.google.com/presentation/d/${driveFile.id}/preview`;
+    // /preview opens the Slides editor. In this site's iframe that editor shows
+    // "Google Docs encountered an error" until the file has been opened in Drive.
+    // /embed is the slideshow player and renders on the first open.
+    return `https://docs.google.com/presentation/d/${driveFile.id}/embed?start=false&loop=false&delayms=3000`;
   }
 
   return `https://drive.google.com/file/d/${driveFile.id}/preview`;

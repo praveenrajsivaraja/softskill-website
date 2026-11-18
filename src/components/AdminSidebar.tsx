@@ -12,6 +12,7 @@ import {
   Bell,
   Home,
   Ticket,
+  Receipt,
   Shield,
   X
 } from 'lucide-react';
@@ -67,6 +68,12 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
       label: 'Enrollments', 
       path: '/admin/enrollments',
       description: 'Track student progress'
+    },
+    {
+      icon: Receipt,
+      label: 'Sales',
+      path: '/admin/sales',
+      description: 'Program sales and revenue'
     },
     { 
       icon: Home, 

@@ -21,6 +21,7 @@ const adminPaths = new Set([
   '/admin/progress',
   '/admin/career-test',
   '/admin/enrollments',
+  '/admin/sales',
   '/admin/homepage',
   '/admin/coupons',
 ]);
@@ -64,12 +65,12 @@ const relatedPool = (asked: string, isAdmin: boolean): string[] => {
       ? ['How many courses are available?', 'Show me the courses I can join.', 'Give me an overview of the platform.']
       : ['Show me the courses I can join.', 'How do I enroll in a course?', 'Which courses am I enrolled in?'];
   }
-  if (/(how many courses|number of courses|count of courses)/.test(asked)) {
+  if (isCourseCountQuestion(asked)) {
     return isAdmin
       ? ['Show me the courses I can join.', 'Which course has the highest enrollment?', 'Give me an overview of the platform.', 'How many registered users are there?']
       : ['Show me the courses I can join.', 'Which courses am I enrolled in?', 'How do I enroll in a course?'];
   }
-  if (/(how many users|registered users|how many people|inactive users)/.test(asked)) {
+  if (isUserCountQuestion(asked) || /(inactive users)/.test(asked)) {
     return isAdmin
       ? ['Which course has the highest enrollment?', 'Give me an overview of the platform.', 'How many courses are available?', 'What is the average assessment score?']
       : studentSuggestions;
@@ -100,14 +101,93 @@ const relatedPool = (asked: string, isAdmin: boolean): string[] => {
       ? ['How many courses are available?', 'Which course has the highest enrollment?', 'How do I enroll in a course?', 'Give me an overview of the platform.']
       : ['How do I enroll in a course?', 'Which courses am I enrolled in?', 'How do I check my assessment scores?'];
   }
-  return isAdmin ? adminSuggestions : studentSuggestions;
+  return [];
 };
+
+const stopWords = new Set([
+  'a', 'an', 'the', 'to', 'of', 'in', 'on', 'for', 'and', 'or', 'my', 'me', 'i',
+  'do', 'does', 'is', 'are', 'am', 'how', 'what', 'where', 'which', 'can', 'please',
+  'tell', 'show', 'give', 'about', 'with', 'from', 'that', 'this', 'it', 'you', 'your',
+  'there', 'be', 'want', 'need', 'know',
+]);
+
+const stemWord = (word: string) => {
+  if (word.startsWith('enroll')) {
+    return 'enroll';
+  }
+  if (word.startsWith('assess')) {
+    return 'assess';
+  }
+  if (word.endsWith('ies') && word.length > 4) {
+    return `${word.slice(0, -3)}y`;
+  }
+  if (word.endsWith('s') && word.length > 3 && !word.endsWith('ss')) {
+    return word.slice(0, -1);
+  }
+  return word;
+};
+
+const questionTokens = (value: string) => new Set(
+  normalizeQuestion(value).split(' ').map(stemWord).filter((word) => word.length > 2 && !stopWords.has(word)),
+);
+
+const knownQuestions = (isAdmin: boolean): string[] => {
+  const shared = [
+    'Show me the courses I can join.',
+    'Which courses am I enrolled in?',
+    'How do I check my assessment scores?',
+    'How do I enroll in a course?',
+    'Where do I find my assessments?',
+  ];
+  if (!isAdmin) {
+    return shared;
+  }
+  return [
+    'How many courses are available?',
+    'How many registered users are there?',
+    'Which course has the highest enrollment?',
+    'Give me an overview of the platform.',
+    'What is the average assessment score?',
+    'Which users are inactive?',
+    'How do I add an assessment?',
+    'How do I add a course?',
+    'How do I upload course materials?',
+    'Where do I see student scores?',
+    ...shared,
+  ];
+};
+
+const rankedByQuestion = (question: string, isAdmin: boolean): string[] => {
+  const askedTokens = questionTokens(question);
+  return knownQuestions(isAdmin)
+    .map((item) => {
+      const itemTokens = questionTokens(item);
+      let score = 0;
+      for (const word of askedTokens) {
+        if (itemTokens.has(word)) {
+          score += 1;
+        }
+      }
+      return { item, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score || left.item.localeCompare(right.item))
+    .map((entry) => entry.item);
+};
+
+export const isCourseCountQuestion = (question: string) =>
+  /(how many courses?|count of courses?|number of courses?|total(?: no| number)? of courses?|total courses?|courses? total|course count|count courses?)/.test(normalizeQuestion(question));
+
+export const isUserCountQuestion = (question: string) =>
+  /(how many users|how many people|registered users|total users|users total|user count)/.test(normalizeQuestion(question));
+
+export const notUnderstoodText = "I'm not able to understand that question.";
 
 export const followUpQuestions = (question: string, isAdmin: boolean): string[] => {
   const asked = normalizeQuestion(question);
   const starters = isAdmin ? adminSuggestions : studentSuggestions;
   const unique: string[] = [];
-  for (const item of [...relatedPool(asked, isAdmin), ...starters]) {
+  for (const item of [...relatedPool(asked, isAdmin), ...rankedByQuestion(question, isAdmin), ...starters]) {
     if (normalizeQuestion(item) === asked || unique.includes(item)) {
       continue;
     }

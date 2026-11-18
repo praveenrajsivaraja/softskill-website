@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { isCourseCountQuestion, isUserCountQuestion } from '@/lib/kiki/routes';
 
 export interface LocalReply {
   text: string;
@@ -68,10 +69,10 @@ export const answerLocally = async (
       ? reply('Add a course from the Courses screen in the admin panel.', { links: [{ label: 'Courses', path: '/admin/courses' }] })
       : denied();
   }
-  if (/(how many courses|count of courses|number of courses)/.test(asked)) {
+  if (isCourseCountQuestion(asked)) {
     return isAdmin ? countCourses() : denied();
   }
-  if (/(how many users|registered users|how many people)/.test(asked)) {
+  if (isUserCountQuestion(asked)) {
     return isAdmin ? countUsers() : denied();
   }
   if (/(highest enrollment|most users|most enrolled)/.test(asked)) {
@@ -149,6 +150,14 @@ const navigationReply = (asked: string, isAdmin: boolean): LocalReply | null => 
       'Open Users in the admin panel. Create one person, or upload a CSV. A matching email updates that user. Roles are student, instructor, and admin. KIKI cannot create accounts or change passwords.',
       '/admin/users',
       'Users',
+      isAdmin,
+    );
+  }
+  if (/(program sales|sales detail|where.{0,20}(sale|revenue)|see (the )?revenue)/.test(asked)) {
+    return adminOnly(
+      'Open Sales in the admin panel. Statistics show paid revenue and orders. Sales details list each buyer and program. More shows revenue by program.',
+      '/admin/sales',
+      'Sales',
       isAdmin,
     );
   }

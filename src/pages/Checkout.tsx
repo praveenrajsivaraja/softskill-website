@@ -609,9 +609,9 @@ const Checkout = () => {
             </Card>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-2">
             {/* Order Summary */}
-            <Card>
+            <Card className="min-w-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5" />
@@ -621,30 +621,35 @@ const Checkout = () => {
               <CardContent>
                 <div className="space-y-4">
                   {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                      <div className="w-16 h-16 bg-gradient-to-br from-kiki-purple-100 to-kiki-blue-100 rounded-lg flex items-center justify-center">
+                    <div key={item.id} className="flex min-w-0 items-start gap-4 rounded-lg border p-4">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-kiki-purple-100 to-kiki-blue-100">
                         {resolveCourseImageUrl(item.course.title, item.course.image_url) ? (
                           <img 
                             src={resolveCourseImageUrl(item.course.title, item.course.image_url) ?? undefined} 
                             alt={item.course.title}
-                            className="w-full h-full object-cover rounded-lg"
+                            className="h-full w-full rounded-lg object-cover"
                           />
                         ) : (
                           <div className="text-2xl">📚</div>
                         )}
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{item.course.title}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-lg font-bold text-kiki-purple-600">
-                            ₹{item.course.price}
-                          </span>
-                          {item.course.highlights?.map((highlight) => (
-                            <Badge key={highlight} className="bg-green-100 text-green-800">
-                              {highlight}
-                            </Badge>
-                          ))}
-                        </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="break-words font-semibold">{item.course.title}</h3>
+                        <p className="mt-1 text-lg font-bold text-kiki-purple-600">
+                          ₹{item.course.price}
+                        </p>
+                        {item.course.highlights && item.course.highlights.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {item.course.highlights.map((highlight) => (
+                              <Badge
+                                key={highlight}
+                                className="h-auto max-w-full shrink-0 whitespace-normal break-words bg-green-100 px-2.5 py-1 text-left font-medium leading-snug text-green-800"
+                              >
+                                {highlight}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -696,7 +701,7 @@ const Checkout = () => {
             </Card>
 
             {/* Payment Form */}
-            <Card>
+            <Card className="min-w-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" />

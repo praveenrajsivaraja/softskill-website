@@ -148,19 +148,21 @@ const UserManagement = () => {
       }
 
       const signInsByUserId = new Map<string, string | null>();
+      const signInColumnAvailable = (profileResult.data ?? []).some((profile) =>
+        Object.prototype.hasOwnProperty.call(profile, 'last_sign_in_at'),
+      );
       if (signInResult.error) {
-        setCanReadLastLogin(false);
         console.error(JSON.stringify({
           event: 'admin_user_sign_in_lookup_failed',
           code: signInResult.error.code,
           message: signInResult.error.message,
         }));
       } else {
-        setCanReadLastLogin(true);
         for (const signIn of signInResult.data ?? []) {
           signInsByUserId.set(signIn.user_id, signIn.last_sign_in_at);
         }
       }
+      setCanReadLastLogin(!signInResult.error || signInColumnAvailable);
 
       const enrollmentsByStudent = new Map<string, EnrollmentRecord[]>();
       for (const enrollment of enrollmentResult.data ?? []) {
@@ -194,7 +196,7 @@ const UserManagement = () => {
           is_active: profile.is_active !== false,
           created_at: profile.created_at ?? new Date(0).toISOString(),
           avatar_url: profile.avatar_url,
-          lastSignInAt: signInsByUserId.get(profile.id) ?? null,
+          lastSignInAt: signInsByUserId.get(profile.id) ?? profile.last_sign_in_at ?? null,
           learning: summarizeUserLearning(enrollments, observedAt),
           enrollments,
         };

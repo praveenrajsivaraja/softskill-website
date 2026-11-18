@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { enrollmentCompletionPercent } from '@/lib/programSales';
 import { 
   Users, 
   BookOpen, 
@@ -28,6 +30,7 @@ interface DashboardStats {
   totalRevenue: number;
   recentUsers: number;
   activeEnrollments: number;
+  completionPercent: number;
 }
 
 const AdminNotifications = () => {
@@ -37,10 +40,12 @@ const AdminNotifications = () => {
     totalOrders: 0,
     totalRevenue: 0,
     recentUsers: 0,
-    activeEnrollments: 0
+    activeEnrollments: 0,
+    completionPercent: 0,
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardStats();
@@ -56,13 +61,15 @@ const AdminNotifications = () => {
         { count: totalCourses },
         { count: totalOrders },
         { data: orders },
-        { count: activeEnrollments }
+        { count: activeEnrollments },
+        { count: completedEnrollments },
       ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('courses').select('*', { count: 'exact', head: true }),
         supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', [...PAID_ORDER_STATUSES]),
         supabase.from('orders').select('total_amount').in('status', [...PAID_ORDER_STATUSES]),
-        supabase.from('enrollments').select('*', { count: 'exact', head: true }).eq('status', 'enrolled')
+        supabase.from('enrollments').select('*', { count: 'exact', head: true }).eq('status', 'enrolled'),
+        supabase.from('enrollments').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
       ]);
 
       // Calculate total revenue
@@ -82,7 +89,8 @@ const AdminNotifications = () => {
         totalOrders: totalOrders || 0,
         totalRevenue: totalRevenue,
         recentUsers: recentUsers || 0,
-        activeEnrollments: activeEnrollments || 0
+        activeEnrollments: activeEnrollments || 0,
+        completionPercent: enrollmentCompletionPercent(completedEnrollments || 0, activeEnrollments || 0),
       });
 
     } catch (error) {
@@ -111,7 +119,8 @@ const AdminNotifications = () => {
       icon: Users,
       color: 'bg-blue-500',
       change: `+${stats.recentUsers} this week`,
-      changeType: 'positive'
+      changeType: 'positive',
+      path: '/admin/users',
     },
     {
       title: 'Total Courses',
@@ -119,7 +128,8 @@ const AdminNotifications = () => {
       icon: BookOpen,
       color: 'bg-green-500',
       change: 'Active courses',
-      changeType: 'neutral'
+      changeType: 'neutral',
+      path: '/admin/courses',
     },
     {
       title: 'Total Orders',
@@ -127,7 +137,8 @@ const AdminNotifications = () => {
       icon: ShoppingCart,
       color: 'bg-purple-500',
       change: 'Paid orders',
-      changeType: 'neutral'
+      changeType: 'neutral',
+      path: '/admin/sales',
     },
     {
       title: 'Total Revenue',
@@ -135,7 +146,8 @@ const AdminNotifications = () => {
       icon: DollarSign,
       color: 'bg-red-500',
       change: 'Paid revenue',
-      changeType: 'positive'
+      changeType: 'positive',
+      path: '/admin/sales',
     }
   ];
 
@@ -144,19 +156,22 @@ const AdminNotifications = () => {
       label: 'Active Enrollments',
       value: stats.activeEnrollments,
       icon: UserCheck,
-      color: 'text-green-600'
+      color: 'text-green-600',
+      path: '/admin/enrollments',
     },
     {
       label: 'Recent Signups',
       value: stats.recentUsers,
       icon: TrendingUp,
-      color: 'text-blue-600'
+      color: 'text-blue-600',
+      path: '/admin/users',
     },
     {
       label: 'Course Completion',
-      value: '85%',
+      value: `${stats.completionPercent}%`,
       icon: BookCheck,
-      color: 'text-purple-600'
+      color: 'text-purple-600',
+      path: '/admin/progress',
     }
   ];
 
@@ -196,10 +211,11 @@ const AdminNotifications = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, index) => {
+        {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={index} className="relative overflow-hidden hover:shadow-lg transition-shadow duration-200">
+            <Link key={stat.path + stat.title} to={stat.path} className="block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">
+            <Card className="relative h-full cursor-pointer overflow-hidden transition-shadow duration-200 hover:shadow-lg">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -218,6 +234,7 @@ const AdminNotifications = () => {
                 </div>
               </CardContent>
             </Card>
+            </Link>
           );
         })}
       </div>
@@ -235,16 +252,16 @@ const AdminNotifications = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {quickStats.map((stat, index) => {
+                {quickStats.map((stat) => {
                   const Icon = stat.icon;
                   return (
-                    <div key={index} className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                    <Link key={stat.path + stat.label} to={stat.path} className="flex items-center gap-3 rounded-lg bg-gray-50 p-4 transition-colors hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">
                       <Icon className={`w-8 h-8 ${stat.color}`} />
                       <div>
                         <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                         <p className="text-sm text-gray-600">{stat.label}</p>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -263,7 +280,7 @@ const AdminNotifications = () => {
           <CardContent className="space-y-3">
             <Button 
               className="w-full justify-start bg-red-600 hover:bg-red-700 text-white"
-              onClick={() => window.location.href = '/admin/users'}
+              onClick={() => navigate('/admin/users')}
             >
               <Users className="w-4 h-4 mr-2" />
               Manage Users
@@ -271,7 +288,7 @@ const AdminNotifications = () => {
             <Button 
               variant="outline" 
               className="w-full justify-start border-red-200 text-red-700 hover:bg-red-50"
-              onClick={() => window.location.href = '/admin/courses'}
+              onClick={() => navigate('/admin/courses')}
             >
               <BookOpen className="w-4 h-4 mr-2" />
               Add New Course
@@ -279,10 +296,10 @@ const AdminNotifications = () => {
             <Button 
               variant="outline" 
               className="w-full justify-start border-red-200 text-red-700 hover:bg-red-50"
-              onClick={() => window.location.href = '/admin/enrollments'}
+              onClick={() => navigate('/admin/sales')}
             >
               <Eye className="w-4 h-4 mr-2" />
-              View Reports
+              View sales
             </Button>
           </CardContent>
         </Card>

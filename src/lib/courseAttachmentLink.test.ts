@@ -83,6 +83,10 @@ test('a document accepts a Google Docs link, a Drive link, or a Google redirect 
     'https://docs.google.com/document/d/abc_DEF-123/preview',
   );
   assert.equal(
+    buildDocumentEmbedUrl('https://docs.google.com/presentation/d/abc_DEF-123/edit?usp=sharing'),
+    'https://docs.google.com/presentation/d/abc_DEF-123/embed?start=false&loop=false&delayms=3000',
+  );
+  assert.equal(
     buildDocumentPreviewImageUrl(
       'https://docs.google.com/document/d/doc-id/edit',
       'https://drive.google.com/file/d/abc_DEF-123/view',
