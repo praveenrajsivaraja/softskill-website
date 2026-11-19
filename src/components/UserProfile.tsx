@@ -202,7 +202,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ isOpen, onClose }) => {
                 <p><span className="font-medium">Name:</span> {getUserDisplayName()}</p>
                 <p><span className="font-medium">Email:</span> {getUserEmail()}</p>
                 <p><span className="font-medium">Phone:</span> {profileData?.phone || 'No phone number yet'}</p>
-                <p><span className="font-medium">Password:</span> Change it with Edit details</p>
+                <p><span className="font-medium">Password:</span> *********</p>
                 <p><span className="font-medium">Member Since:</span> {getMemberSince()}</p>
               </div>
             )}

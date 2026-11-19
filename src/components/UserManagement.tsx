@@ -737,7 +737,7 @@ const UserManagement = () => {
                     <p><span className="font-medium">Name:</span> {selectedUser.full_name || 'No name yet'}</p>
                     <p><span className="font-medium">Email:</span> {selectedUser.email}</p>
                     <p><span className="font-medium">Phone:</span> {selectedUser.phone || 'No phone number yet'}</p>
-                    <p><span className="font-medium">Password:</span> Change it with Edit details</p>
+                    <p><span className="font-medium">Password:</span> *********</p>
                   </div>
                 )}
               </div>
