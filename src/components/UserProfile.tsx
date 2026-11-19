@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { User, BookOpen, Calendar, Award, Clock, Loader2 } from 'lucide-react';
+import { User, BookOpen, Calendar, Award, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import ProfileDetailsEditor from '@/components/ProfileDetailsEditor';
 import { useAuth } from '@/contexts/AuthContext';
 import { isCareerTestCourse } from '@/lib/courseCatalog';
 import { supabase } from '@/integrations/supabase/client';
+import type { NormalizedProfileDetails } from '@/lib/profileDetails';
 
 interface UserProfileProps {
   isOpen: boolean;
@@ -40,13 +43,33 @@ const UserProfile: React.FC<UserProfileProps> = ({ isOpen, onClose }) => {
   const [profileData, setProfileData] = useState<UserProfileData | null>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    if (isOpen && isAuthenticated && user) {
+    if (!isOpen) {
+      setIsEditing(false);
+      return;
+    }
+    if (isAuthenticated && user) {
       fetchUserProfile();
       fetchUserEnrollments();
     }
   }, [isOpen, isAuthenticated, user]);
+
+  const applySavedDetails = (details: NormalizedProfileDetails) => {
+    if (!user) {
+      return;
+    }
+    setProfileData((current) => ({
+      id: user.id,
+      email: details.email,
+      full_name: details.fullName,
+      phone: details.phone,
+      avatar_url: current?.avatar_url ?? user.user_metadata?.avatar_url ?? null,
+      created_at: current?.created_at ?? user.created_at ?? new Date().toISOString(),
+    }));
+    setIsEditing(false);
+  };
 
   const fetchUserProfile = async () => {
     if (!user) return;
@@ -156,15 +179,33 @@ const UserProfile: React.FC<UserProfileProps> = ({ isOpen, onClose }) => {
         <div className="space-y-6">
           {/* Personal Information */}
           <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Personal Information</h3>
-            <div className="space-y-2">
-              <p><span className="font-medium">Name:</span> {getUserDisplayName()}</p>
-              <p><span className="font-medium">Email:</span> {getUserEmail()}</p>
-              {profileData?.phone && (
-                <p><span className="font-medium">Phone:</span> {profileData.phone}</p>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
+              {!isEditing && user && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                  Edit details
+                </Button>
               )}
-              <p><span className="font-medium">Member Since:</span> {getMemberSince()}</p>
             </div>
+            {isEditing && user ? (
+              <ProfileDetailsEditor
+                key={user.id}
+                userId={user.id}
+                fullName={profileData?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || ''}
+                email={user.email || getUserEmail()}
+                phone={profileData?.phone ?? ''}
+                onCancel={() => setIsEditing(false)}
+                onSaved={applySavedDetails}
+              />
+            ) : (
+              <div className="space-y-2">
+                <p><span className="font-medium">Name:</span> {getUserDisplayName()}</p>
+                <p><span className="font-medium">Email:</span> {getUserEmail()}</p>
+                <p><span className="font-medium">Phone:</span> {profileData?.phone || 'No phone number yet'}</p>
+                <p><span className="font-medium">Password:</span> Change it with Edit details</p>
+                <p><span className="font-medium">Member Since:</span> {getMemberSince()}</p>
+              </div>
+            )}
           </div>
 
           {/* Enrolled Courses */}

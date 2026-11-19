@@ -19,6 +19,8 @@ import { userSheetHeaders, userSheetSample } from '@/lib/sheetTemplates';
 import AdminSheetMenu from '@/components/AdminSheetMenu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Trash2, Loader2, RefreshCw } from 'lucide-react';
+import ProfileDetailsEditor from '@/components/ProfileDetailsEditor';
+import type { NormalizedProfileDetails } from '@/lib/profileDetails';
 import AdminSearchableTab from '@/components/AdminSearchableTab';
 import DownloadReportButton from '@/components/DownloadReportButton';
 import { filterRecordsBySearch } from '@/lib/adminSearch';
@@ -90,6 +92,7 @@ const UserManagement = () => {
   const [updatingStatusUserId, setUpdatingStatusUserId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [canReadLastLogin, setCanReadLastLogin] = useState(true);
+  const [isEditingUser, setIsEditingUser] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', full_name: '', password: '', role: 'student' as UserRole });
@@ -100,6 +103,19 @@ const UserManagement = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    setIsEditingUser(false);
+  }, [selectedUserId]);
+
+  const applySavedUserDetails = (userId: string, details: NormalizedProfileDetails) => {
+    setUsers((previousUsers) => previousUsers.map((user) => (
+      user.id === userId
+        ? { ...user, full_name: details.fullName, email: details.email, phone: details.phone }
+        : user
+    )));
+    setIsEditingUser(false);
+  };
 
   const filteredUsers = useMemo(
     () => filterRecordsBySearch(users, userSearch, (user) => [
@@ -673,8 +689,8 @@ const UserManagement = () => {
         </AdminSearchableTab>
       </CardContent>
     </Card>
-    <Dialog open={selectedUserId !== null} onOpenChange={(isOpen) => { if (!isOpen) setSelectedUserId(null); }}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={selectedUserId !== null} onOpenChange={(isOpen) => { if (!isOpen) { setSelectedUserId(null); setIsEditingUser(false); } }}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         {(() => {
           const selectedUser = users.find((user) => user.id === selectedUserId);
           if (!selectedUser) {
@@ -697,7 +713,36 @@ const UserManagement = () => {
                   {` · last login ${canReadLastLogin ? (selectedUser.lastSignInAt ? formatDateTime(selectedUser.lastSignInAt) : 'never') : 'unavailable'}`}
                 </DialogDescription>
               </DialogHeader>
-              <div className="max-h-[60vh] space-y-3 overflow-y-auto">
+              <div className="rounded-lg border p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">Account details</p>
+                  {!isEditingUser && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setIsEditingUser(true)}>
+                      Edit details
+                    </Button>
+                  )}
+                </div>
+                {isEditingUser ? (
+                  <ProfileDetailsEditor
+                    key={selectedUser.id}
+                    userId={selectedUser.id}
+                    fullName={selectedUser.full_name ?? ''}
+                    email={signedInUser?.id === selectedUser.id ? (signedInUser.email || selectedUser.email) : selectedUser.email}
+                    phone={selectedUser.phone ?? ''}
+                    onCancel={() => setIsEditingUser(false)}
+                    onSaved={(details) => applySavedUserDetails(selectedUser.id, details)}
+                  />
+                ) : (
+                  <div className="space-y-1 text-sm text-gray-700">
+                    <p><span className="font-medium">Name:</span> {selectedUser.full_name || 'No name yet'}</p>
+                    <p><span className="font-medium">Email:</span> {selectedUser.email}</p>
+                    <p><span className="font-medium">Phone:</span> {selectedUser.phone || 'No phone number yet'}</p>
+                    <p><span className="font-medium">Password:</span> Change it with Edit details</p>
+                  </div>
+                )}
+              </div>
+              <div className="max-h-[40vh] space-y-3 overflow-y-auto">
+                <p className="text-sm font-medium">Enrollments</p>
                 {history.length === 0 && <p className="text-sm text-gray-500">This person has no enrollments yet.</p>}
                 {history.map((enrollment) => {
                   const expiresAt = enrollmentExpiresAt(enrollment.enrolledAt, enrollment.duration);

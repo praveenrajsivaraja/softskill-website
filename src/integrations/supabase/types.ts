@@ -1073,6 +1073,22 @@ export type Database = {
           last_sign_in_at: string | null
         }[]
       }
+      update_profile_details: {
+        Args: {
+          target_user_id: string
+          next_full_name: string
+          next_phone: string
+          next_email: string
+        }
+        Returns: undefined
+      }
+      update_account_password: {
+        Args: {
+          target_user_id: string
+          next_password: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       course_status: "active" | "inactive" | "archived"
